@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from 'react';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
@@ -18,7 +19,7 @@ export default function ActiveRideChat() {
   const [input, setInput] = useState('');
 
   return (
-    <DashboardLayout userName="Aynan Nishat">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto flex gap-8 h-[calc(100vh-8rem)]">
         
         {/* Left Sidebar: Ride Details */}

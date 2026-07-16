@@ -3,14 +3,12 @@ import { Sidebar } from './Sidebar';
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  userType?: 'customer' | 'rider';
-  userName: string;
 }
 
-export function DashboardLayout({ children, userType, userName }: DashboardLayoutProps) {
+export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      <Sidebar userType={userType} userName={userName} />
+      <Sidebar />
       <main className="flex-1 ml-64 p-8">
         {children}
       </main>

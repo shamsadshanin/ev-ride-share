@@ -1,19 +1,36 @@
+import React from "react";
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '@/src/lib/firebase';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Input } from '@/src/components/ui/Input';
-import { Send, Eye, EyeOff } from 'lucide-react';
-import { motion } from 'motion/react';
+import { Send, Eye, EyeOff, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSignIn = (e: React.FormEvent) => {
+  const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Logic later
-    navigate('/dashboard');
+    setError('');
+    setLoading(true);
+    
+    try {
+      await signInWithEmailAndPassword(auth, email, password);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setError(err.message || 'Failed to sign in. Please check your credentials.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -72,10 +89,26 @@ export default function Login() {
             </div>
 
             <form onSubmit={handleSignIn} className="space-y-6">
+              <AnimatePresence>
+                {error && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm font-medium"
+                  >
+                    <AlertCircle size={18} />
+                    {error}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <Input 
-                label="Email / Phone" 
+                label="Email" 
                 placeholder="you@example.com" 
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 required
               />
               
@@ -84,6 +117,8 @@ export default function Login() {
                   label="Password" 
                   placeholder="••••••••" 
                   type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                 />
                 <button 
@@ -105,14 +140,16 @@ export default function Login() {
                 </Link>
               </div>
 
-              <EmeraldButton type="submit" className="w-full py-4 text-lg">
-                Sign In
-                <motion.span
-                  animate={{ x: [0, 5, 0] }}
-                  transition={{ repeat: Infinity, duration: 1.5 }}
-                >
-                  →
-                </motion.span>
+              <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading}>
+                {loading ? 'Signing in...' : 'Sign In'}
+                {!loading && (
+                  <motion.span
+                    animate={{ x: [0, 5, 0] }}
+                    transition={{ repeat: Infinity, duration: 1.5 }}
+                  >
+                    →
+                  </motion.span>
+                )}
               </EmeraldButton>
 
               <div className="relative py-4">

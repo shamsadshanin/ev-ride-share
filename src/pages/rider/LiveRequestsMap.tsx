@@ -1,22 +1,79 @@
+import React from "react";
+import { useEffect, useState } from 'react';
+import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
+import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { MapPin, Navigation, Eye, X } from 'lucide-react';
+import { MapPin, Navigation, Eye, X, Loader2 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { useNavigate } from 'react-router-dom';
 
-const requests = [
-  { id: 1, loc: 'sfsoft BD', sub: 'Mirpur 15', pax: '2 pax', fare: 'BDT 40', top: '35%', left: '30%', color: 'emerald' },
-  { id: 2, loc: 'IUB, Dhaka', sub: 'Uttara', pax: '3 pax', fare: 'BDT 65', top: '25%', left: '65%', color: 'blue' },
-  { id: 3, loc: 'Jamuna Future Park', sub: 'Gulshan 2', pax: '1 pax', fare: 'BDT 50', top: '55%', left: '55%', color: 'purple' },
-];
+interface RideRequest {
+  id: string;
+  customerName: string;
+  pickup: string;
+  destination: string;
+  fare: number;
+  seats: number;
+  vehicleType: string;
+  top?: string;
+  left?: string;
+}
 
 export default function LiveRequestsMap() {
   const navigate = useNavigate();
+  const { user, profile } = useAuthStore();
+  const [requests, setRequests] = useState<RideRequest[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const q = query(collection(db, 'rides'), where('status', '==', 'Pending'));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const requestsData = snapshot.docs.map(doc => {
+        const data = doc.data();
+        // Randomly place on "map" if coordinates not present
+        return {
+          id: doc.id,
+          ...data,
+          top: data.top || `${20 + Math.random() * 60}%`,
+          left: data.left || `${20 + Math.random() * 60}%`,
+        };
+      }) as RideRequest[];
+      setRequests(requestsData);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const handleBid = async (rideId: string, suggestedFare: number) => {
+    if (!user) return;
+    try {
+      await addDoc(collection(db, 'bids'), {
+        rideId,
+        riderId: user.uid,
+        riderName: profile?.fullName || user.displayName || 'Nasrin Akter',
+        fare: suggestedFare,
+        eta: '5 min',
+        status: 'Pending',
+        vehicle: profile?.vehicle || 'Walton EV Sedan',
+        plate: profile?.plate || 'DHA-5678',
+        rating: '4.9',
+        trips: '287 completed trips',
+        createdAt: serverTimestamp(),
+      });
+      // Maybe show a success toast or change button state
+      alert('Bid placed successfully!');
+    } catch (error) {
+      console.error('Error placing bid:', error);
+    }
+  };
 
   return (
-    <DashboardLayout userType="rider" userName="Nasrin Akter">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto h-[calc(100vh-8rem)] flex flex-col gap-6">
         
         {/* Header */}
@@ -33,6 +90,13 @@ export default function LiveRequestsMap() {
 
         {/* Interactive Map Area */}
         <GlassCard className="flex-1 p-0 overflow-hidden bg-slate-200 relative border-slate-200">
+          {loading ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-slate-100/50 backdrop-blur-sm z-50 gap-4">
+              <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+              <p className="font-bold text-slate-500">Scanning for requests...</p>
+            </div>
+          ) : null}
+
           {/* Grid Background */}
           <div className="absolute inset-0 grid grid-cols-12 grid-rows-8 gap-4 p-8 opacity-40">
              {Array.from({ length: 96 }).map((_, i) => (
@@ -58,10 +122,7 @@ export default function LiveRequestsMap() {
             >
               <div className="relative group">
                 {/* Marker Dot */}
-                <div className={cn(
-                   "w-6 h-6 rounded-full border-4 border-white shadow-xl mb-2 flex items-center justify-center",
-                   req.color === 'emerald' ? "bg-emerald-500" : req.color === 'blue' ? "bg-blue-500" : "bg-purple-500"
-                )}>
+                <div className="w-6 h-6 rounded-full border-4 border-white shadow-xl mb-2 flex items-center justify-center bg-emerald-500">
                    <div className="w-1 h-1 bg-white rounded-full animate-ping" />
                 </div>
 
@@ -69,27 +130,30 @@ export default function LiveRequestsMap() {
                 <GlassCard className="absolute top-8 left-0 min-w-64 p-4 shadow-2xl border-white group-hover:scale-105 transition-transform">
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h4 className="font-black text-slate-800 text-sm leading-tight">{req.loc}</h4>
+                      <h4 className="font-black text-slate-800 text-sm leading-tight">{req.customerName}</h4>
                       <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mt-0.5">
-                        <Navigation size={10} />
-                        {req.sub}
+                        <MapPin size={10} className="text-emerald-500" />
+                        {req.pickup}
+                      </div>
+                      <div className="flex items-center gap-1 text-[10px] text-slate-400 font-bold uppercase mt-0.5">
+                        <MapPin size={10} className="text-red-500" />
+                        {req.destination}
                       </div>
                     </div>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.pax}</span>
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{req.seats} seats</span>
                   </div>
                   
                   <div className="flex items-center justify-between">
-                    <span className="text-lg font-black text-emerald-600">{req.fare}</span>
+                    <span className="text-lg font-black text-emerald-600">BDT {req.fare}</span>
                     <div className="flex gap-2">
                        <button className="p-2 rounded-lg hover:bg-slate-50 text-slate-400 hover:text-red-500 transition-all">
                          <X size={16} />
                        </button>
                        <EmeraldButton 
-                        onClick={() => navigate('/rider/trip/active')}
+                        onClick={() => handleBid(req.id, req.fare)}
                         className="p-2 py-2 px-4 text-[10px] h-auto shadow-none"
                        >
-                         <Eye size={14} />
-                         View
+                         Bid Now
                        </EmeraldButton>
                     </div>
                   </div>

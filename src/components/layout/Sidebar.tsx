@@ -1,4 +1,7 @@
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth } from '@/src/lib/firebase';
+import { useAuthStore } from '@/src/store/useAuthStore';
 import { LayoutDashboard, Send, Car, LogOut, Bell, User } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
@@ -10,18 +13,26 @@ const customerLinks = [
 
 const riderLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/rider/dashboard' },
-  { icon: Car, label: 'My Rides', path: '/rider/rides' },
+  { icon: Car, label: 'My Rides', path: '/rider/history' },
   { icon: Bell, label: 'Notifications', path: '/rider/notifications' },
 ];
 
-interface SidebarProps {
-  userType?: 'customer' | 'rider';
-  userName: string;
-  userStatus?: string;
-}
-
-export function Sidebar({ userType = 'customer', userName, userStatus = 'Active' }: SidebarProps) {
+export function Sidebar() {
+  const { profile, user } = useAuthStore();
+  const userType = profile?.userType?.toLowerCase() || 'customer';
+  const userName = profile?.fullName || user?.displayName || 'User';
+  const userStatus = profile?.userStatus || 'Active';
+  const navigate = useNavigate();
   const links = userType === 'customer' ? customerLinks : riderLinks;
+
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+  };
 
   return (
     <aside className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50">
@@ -56,7 +67,10 @@ export function Sidebar({ userType = 'customer', userName, userStatus = 'Active'
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-4">
-        <button className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-400 hover:text-white transition-colors rounded-xl hover:bg-white/5">
+        <button 
+          onClick={handleLogout}
+          className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-400 hover:text-white transition-colors rounded-xl hover:bg-white/5"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Log Out</span>
         </button>

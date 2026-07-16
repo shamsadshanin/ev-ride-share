@@ -1,3 +1,4 @@
+import React from "react";
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
@@ -46,7 +47,7 @@ export default function CustomerDashboard() {
   const navigate = useNavigate();
 
   return (
-    <DashboardLayout userName="Aynan Nishat">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header Section */}

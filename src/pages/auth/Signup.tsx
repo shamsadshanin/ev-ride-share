@@ -1,17 +1,60 @@
+import React from "react";
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db } from '@/src/lib/firebase';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Input } from '@/src/components/ui/Input';
-import { motion } from 'motion/react';
+import { AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 
 export default function Signup() {
   const [userType, setUserType] = useState('Customer');
+  const [fullName, setFullName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
 
-  const handleSignup = (e: React.FormEvent) => {
+  const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/kyc');
+    setError('');
+
+    if (password !== confirmPassword) {
+      setError('Passwords do not match');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      // Create user profile in Firestore
+      await setDoc(doc(db, 'users', user.uid), {
+        uid: user.uid,
+        fullName,
+        email,
+        phone,
+        userType,
+        kycStatus: 'Pending',
+        userStatus: userType === 'Rider' ? 'Offline' : 'Active',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      navigate(userType === 'Rider' ? '/rider/kyc' : '/kyc');
+    } catch (err: any) {
+      setError(err.message || 'Failed to create account.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,9 +71,36 @@ export default function Signup() {
           </div>
 
           <form onSubmit={handleSignup} className="space-y-6">
+            <AnimatePresence>
+              {error && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm font-medium"
+                >
+                  <AlertCircle size={18} />
+                  {error}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input label="Full Name" placeholder="Aynan Nishat" required />
-              <Input label="Email" placeholder="you@example.com" type="email" required />
+              <Input 
+                label="Full Name" 
+                placeholder="Aynan Nishat" 
+                required 
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+              <Input 
+                label="Email" 
+                placeholder="you@example.com" 
+                type="email" 
+                required 
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -43,7 +113,12 @@ export default function Signup() {
                     <option>+880</option>
                   </select>
                 </div>
-                <Input placeholder="01X XXXX XXXX" className="flex-1" />
+                <Input 
+                  placeholder="01X XXXX XXXX" 
+                  className="flex-1" 
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                />
               </div>
             </div>
 
@@ -70,8 +145,22 @@ export default function Signup() {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <Input label="Password" placeholder="••••••••" type="password" required />
-              <Input label="Confirm Password" placeholder="••••••••" type="password" required />
+              <Input 
+                label="Password" 
+                placeholder="••••••••" 
+                type="password" 
+                required 
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <Input 
+                label="Confirm Password" 
+                placeholder="••••••••" 
+                type="password" 
+                required 
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
             </div>
 
             <div className="flex items-start gap-3 px-1">
@@ -86,14 +175,16 @@ export default function Signup() {
               </label>
             </div>
 
-            <EmeraldButton type="submit" className="w-full py-4 text-lg">
-              Create Account
-              <motion.span
-                animate={{ x: [0, 5, 0] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-              >
-                →
-              </motion.span>
+            <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading}>
+              {loading ? 'Creating Account...' : 'Create Account'}
+              {!loading && (
+                <motion.span
+                  animate={{ x: [0, 5, 0] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                >
+                  →
+                </motion.span>
+              )}
             </EmeraldButton>
           </form>
 

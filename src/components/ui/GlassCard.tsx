@@ -1,22 +1,25 @@
-import { ReactNode } from 'react';
+import React from 'react';
 import { cn } from '@/src/lib/utils';
 
-interface GlassCardProps {
-  children: ReactNode;
-  className?: string;
-  id?: string;
+export interface GlassCardProps extends React.HTMLAttributes<HTMLDivElement> {
+  children?: React.ReactNode;
 }
 
-export function GlassCard({ children, className, id }: GlassCardProps) {
-  return (
-    <div 
-      id={id}
-      className={cn(
-        "glass rounded-3xl p-6 transition-all duration-300",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}
+export const GlassCard = React.forwardRef<HTMLDivElement, GlassCardProps>(
+  ({ children, className, ...props }, ref) => {
+    return (
+      <div 
+        ref={ref}
+        className={cn(
+          "glass rounded-3xl p-6 transition-all duration-300",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </div>
+    );
+  }
+);
+
+GlassCard.displayName = 'GlassCard';

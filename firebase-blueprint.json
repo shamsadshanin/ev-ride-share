@@ -1,0 +1,52 @@
+{
+  "collections": {
+    "users": {
+      "description": "User profiles for both customers and riders",
+      "fields": {
+        "fullName": "string",
+        "email": "string",
+        "phoneNumber": "string",
+        "userType": "string",
+        "kycStatus": "string",
+        "userStatus": "string",
+        "avatarUrl": "string",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      }
+    },
+    "rides": {
+      "description": "Ride requests and active rides",
+      "fields": {
+        "customerId": "string",
+        "riderId": "string",
+        "pickup": "string",
+        "destination": "string",
+        "fare": "number",
+        "vehicleType": "string",
+        "seats": "number",
+        "status": "string",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      }
+    },
+    "bids": {
+      "description": "Bids from riders on ride requests",
+      "fields": {
+        "rideId": "string",
+        "riderId": "string",
+        "fare": "number",
+        "eta": "string",
+        "status": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "chats": {
+      "description": "Messages for active rides",
+      "fields": {
+        "rideId": "string",
+        "messages": "array",
+        "updatedAt": "timestamp"
+      }
+    }
+  }
+}

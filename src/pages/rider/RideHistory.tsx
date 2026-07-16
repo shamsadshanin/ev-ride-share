@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from 'react';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
@@ -19,7 +20,7 @@ export default function RideHistory() {
   const [activeTab, setActiveTab] = useState('All');
 
   return (
-    <DashboardLayout userType="rider" userName="Nasrin Akter">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-8">
         
         {/* Header */}

@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from 'react';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
@@ -20,7 +21,7 @@ export default function ActiveTrip() {
   const [input, setInput] = useState('');
 
   return (
-    <DashboardLayout userType="rider" userName="Nasrin Akter">
+    <DashboardLayout>
       <div className="max-w-6xl mx-auto flex gap-8 h-[calc(100vh-8rem)]">
         
         {/* Left Sidebar: Trip & Passengers */}

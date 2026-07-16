@@ -1,11 +1,15 @@
+import React from "react";
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
+import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Input } from '@/src/components/ui/Input';
-import { MapPin, Car, Bike, Send, Minus, Plus } from 'lucide-react';
-import { motion } from 'motion/react';
+import { MapPin, Car, Bike, Send, Minus, Plus, AlertCircle } from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
 const vehicleTypes = [
@@ -16,11 +20,45 @@ const vehicleTypes = [
 
 export default function PostRide() {
   const navigate = useNavigate();
+  const { user, profile } = useAuthStore();
   const [selectedVehicle, setSelectedVehicle] = useState('ev-car');
   const [seats, setSeats] = useState(2);
+  const [pickup, setPickup] = useState('IUB, Dhaka');
+  const [destination, setDestination] = useState('sfsoft BD, Mirpur');
+  const [fare, setFare] = useState(50);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const handlePostRide = async () => {
+    if (!user) return;
+    setLoading(true);
+    setError('');
+
+    try {
+      const rideRef = await addDoc(collection(db, 'rides'), {
+        customerId: user.uid,
+        customerName: profile?.fullName || user.displayName || 'Anonymous',
+        pickup,
+        destination,
+        fare,
+        vehicleType: selectedVehicle,
+        seats,
+        status: 'Pending',
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+
+      navigate(`/driver-bids?rideId=${rideRef.id}`);
+    } catch (err: any) {
+      setError(err.message || 'Failed to post ride request.');
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <DashboardLayout userName="Aynan Nishat">
+    <DashboardLayout>
       <div className="max-w-4xl mx-auto space-y-6">
         <header>
           <h1 className="text-3xl font-bold text-slate-800 mb-1">Post a Ride</h1>
@@ -56,18 +94,34 @@ export default function PostRide() {
         </GlassCard>
 
         <GlassCard className="p-10 space-y-8">
+          <AnimatePresence>
+            {error && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm font-medium"
+              >
+                <AlertCircle size={18} />
+                {error}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Input 
               label="Pickup Address" 
               placeholder="IUB, Dhaka" 
               icon={<MapPin className="text-emerald-500" size={18} />} 
-              defaultValue="IUB, Dhaka"
+              value={pickup}
+              onChange={(e) => setPickup(e.target.value)}
             />
             <Input 
               label="Destination Address" 
               placeholder="sfsoft BD, Mirpur" 
               icon={<MapPin className="text-red-500" size={18} />}
-              defaultValue="sfsoft BD, Mirpur"
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
             />
           </div>
 
@@ -76,7 +130,8 @@ export default function PostRide() {
               label="Offer Amount (BDT)" 
               placeholder="50" 
               type="number"
-              defaultValue="50"
+              value={fare}
+              onChange={(e) => setFare(Number(e.target.value))}
             />
           </div>
 
@@ -134,10 +189,15 @@ export default function PostRide() {
 
           <EmeraldButton 
             className="w-full py-5 text-lg"
-            onClick={() => navigate('/driver-bids')}
+            onClick={handlePostRide}
+            disabled={loading || !user}
           >
-            <Send className="w-5 h-5 rotate-[-15deg]" />
-            Post Ride Request
+            {loading ? (
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Send className="w-5 h-5 rotate-[-15deg]" />
+            )}
+            {loading ? 'Posting Request...' : 'Post Ride Request'}
           </EmeraldButton>
         </GlassCard>
       </div>

@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
@@ -24,7 +25,7 @@ export default function VehicleKYC() {
   ];
 
   return (
-    <DashboardLayout userType="rider" userName="Nasrin Akter">
+    <DashboardLayout>
       <div className="max-w-4xl mx-auto py-4">
         <header className="text-center mb-10">
           <h1 className="text-3xl font-bold text-slate-800 mb-2">Vehicle Registration & KYC</h1>

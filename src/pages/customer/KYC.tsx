@@ -1,3 +1,4 @@
+import React from "react";
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
@@ -20,7 +21,7 @@ export default function KYC() {
   ];
 
   return (
-    <DashboardLayout userName="Aynan Nishat">
+    <DashboardLayout>
       <div className="max-w-4xl mx-auto py-4">
         <header className="mb-10">
           <h1 className="text-3xl font-bold text-slate-800 mb-2">KYC Verification</h1>
