@@ -69,6 +69,17 @@
         "read": "boolean"
       }
     },
+    "ratings": {
+      "description": "User ratings for riders",
+      "fields": {
+        "rideId": "string",
+        "customerId": "string",
+        "riderId": "string",
+        "rating": "number",
+        "comment": "string",
+        "createdAt": "timestamp"
+      }
+    },
     "group_messages": {
       "description": "Public chat messages for the rider community",
       "fields": {

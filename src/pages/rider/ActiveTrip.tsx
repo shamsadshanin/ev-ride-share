@@ -98,8 +98,10 @@ export default function ActiveTrip() {
     return () => unsubscribe();
   }, [selectedRideId]);
 
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'connected'>('idle');
+
   useEffect(() => {
-    if (isCalling) {
+    if (callStatus === 'connected') {
       timerRef.current = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
@@ -108,7 +110,18 @@ export default function ActiveTrip() {
       setCallDuration(0);
     }
     return () => clearInterval(timerRef.current);
-  }, [isCalling]);
+  }, [callStatus]);
+
+  const startCall = () => {
+    setCallStatus('calling');
+    setTimeout(() => setCallStatus('connected'), 2000);
+    setIsCalling(true);
+  };
+
+  const endCall = () => {
+    setCallStatus('idle');
+    setIsCalling(false);
+  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -244,17 +257,23 @@ export default function ActiveTrip() {
                       setViewMode('details');
                     }}
                     className={cn(
-                      "p-4 rounded-2xl border transition-all cursor-pointer group",
-                      selectedRideId === r.id ? "bg-emerald-50/50 border-emerald-200" : "bg-slate-50/50 border-slate-100 hover:border-slate-200"
+                      "p-5 rounded-[2rem] border transition-all cursor-pointer group mb-3 relative overflow-hidden",
+                      selectedRideId === r.id ? "bg-white border-emerald-500 shadow-xl shadow-emerald-50" : "bg-white border-slate-100 hover:border-slate-200"
                     )}
                   >
-                    <div className="flex items-center justify-between mb-3">
-                       <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-lg bg-white flex items-center justify-center text-slate-400 shadow-xs">
-                             <User size={16} />
+                    {selectedRideId === r.id && (
+                      <div className="absolute top-0 left-0 w-1.5 h-full bg-emerald-500" />
+                    )}
+                    <div className="flex items-center justify-between mb-4">
+                       <div className="flex items-center gap-4">
+                          <div className={cn(
+                            "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
+                            selectedRideId === r.id ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-slate-50 text-slate-400"
+                          )}>
+                             <User size={20} />
                           </div>
-                          <div className="min-w-0 flex-1">
-                             <h4 className="text-sm font-bold text-slate-800 truncate">{r.customerName || 'Customer'}</h4>
+                          <div className="min-w-0">
+                             <h4 className="text-base font-bold text-slate-800 truncate">{r.customerName || 'Passenger'}</h4>
                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{r.destination}</p>
                           </div>
                        </div>
@@ -264,23 +283,26 @@ export default function ActiveTrip() {
                            handleToggleOnboard(r.id, r.rideSubStatus);
                          }}
                          className={cn(
-                           "px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all shrink-0 ml-2",
-                           r.rideSubStatus === 'Onboard' ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-600"
+                           "px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0 shadow-sm",
+                           r.rideSubStatus === 'Onboard' ? "bg-emerald-500 text-white" : "bg-amber-100 text-amber-600 border border-amber-200"
                          )}
                        >
                          {r.rideSubStatus === 'Onboard' ? 'Onboard ✓' : 'Waiting'}
                        </button>
                     </div>
-                    <div className="flex justify-between items-center">
-                       <span className="text-xs font-black text-slate-700">BDT {r.finalFare || r.fare}</span>
+                    <div className="flex justify-between items-center bg-slate-50/50 -mx-5 -mb-5 px-5 py-3 border-t border-slate-50">
+                       <div className="flex flex-col">
+                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Est. Fare</span>
+                          <span className="text-sm font-black text-slate-800">৳{r.finalFare || r.fare}</span>
+                       </div>
                        <EmeraldButton 
                          onClick={(e) => {
                            e.stopPropagation();
                            handleCompleteRide(r.id);
                          }}
-                         className="py-1 px-3 text-[8px]"
+                         className="py-2.5 px-5 text-[10px] font-black rounded-xl shadow-lg shadow-emerald-100"
                        >
-                          Complete
+                          Complete Ride
                        </EmeraldButton>
                     </div>
                   </div>
@@ -359,7 +381,7 @@ export default function ActiveTrip() {
                </div>
                <div className="flex gap-2 shrink-0">
                  <button 
-                   onClick={() => setIsCalling(true)}
+                   onClick={startCall}
                    className="p-2.5 rounded-xl bg-emerald-50 text-emerald-500 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-xs"
                  >
                     <Phone size={16} />
@@ -440,7 +462,9 @@ export default function ActiveTrip() {
                 
                 <div className="text-center">
                   <h2 className="text-2xl font-bold mb-1">{selectedRide?.customerName || 'Customer'}</h2>
-                  <p className="text-emerald-400 font-bold uppercase tracking-[0.2em] text-[10px]">{formatTime(callDuration)}</p>
+                  <p className="text-emerald-400 font-bold uppercase tracking-[0.2em] text-[10px]">
+                    {callStatus === 'calling' ? 'Calling...' : formatTime(callDuration)}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 mt-4">
@@ -448,7 +472,7 @@ export default function ActiveTrip() {
                     <Mic size={24} className="text-slate-400" />
                   </button>
                   <button 
-                    onClick={() => setIsCalling(false)}
+                    onClick={endCall}
                     className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors shadow-xl shadow-red-500/20"
                   >
                     <PhoneOff size={24} />

@@ -11,7 +11,7 @@ import { createNotification } from '@/src/lib/notifications';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { Phone, Send, User, MessageSquare, Loader2, MapPin, ChevronLeft, Mic, PhoneOff, X, Info } from 'lucide-react';
+import { Phone, Send, User, MessageSquare, Loader2, MapPin, ChevronLeft, Mic, PhoneOff, X, Info, Star, CheckCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
@@ -34,6 +34,7 @@ function MapRecenter({ center }: { center: [number, number] }) {
 
 export default function ActiveRideChat() {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const rideId = searchParams.get('rideId');
   const { user, profile } = useAuthStore();
   const [ride, setRide] = useState<any>(null);
@@ -43,6 +44,9 @@ export default function ActiveRideChat() {
   const [viewMode, setViewMode] = useState<'chat' | 'details'>('chat');
   const [isCalling, setIsCalling] = useState(false);
   const [callDuration, setCallDuration] = useState(0);
+  const [rating, setRating] = useState(0);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [isRatingSubmitted, setIsRatingSubmitted] = useState(false);
   
   const scrollRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<any>(null);
@@ -55,13 +59,17 @@ export default function ActiveRideChat() {
 
     const unsubscribe = onSnapshot(doc(db, 'rides', rideId), (docSnap) => {
       if (docSnap.exists()) {
-        setRide({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        setRide({ id: docSnap.id, ...data });
+        if (data.status === 'Completed' && !isRatingSubmitted) {
+          setShowRatingModal(true);
+        }
       }
       setLoading(false);
     });
 
     return () => unsubscribe();
-  }, [rideId]);
+  }, [rideId, isRatingSubmitted]);
 
   useEffect(() => {
     if (!rideId) return;
@@ -84,8 +92,10 @@ export default function ActiveRideChat() {
     return () => unsubscribe();
   }, [rideId]);
 
+  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'connected'>('idle');
+
   useEffect(() => {
-    if (isCalling) {
+    if (callStatus === 'connected') {
       timerRef.current = setInterval(() => {
         setCallDuration(prev => prev + 1);
       }, 1000);
@@ -94,7 +104,18 @@ export default function ActiveRideChat() {
       setCallDuration(0);
     }
     return () => clearInterval(timerRef.current);
-  }, [isCalling]);
+  }, [callStatus]);
+
+  const startCall = () => {
+    setCallStatus('calling');
+    setTimeout(() => setCallStatus('connected'), 2000);
+    setIsCalling(true);
+  };
+
+  const endCall = () => {
+    setCallStatus('idle');
+    setIsCalling(false);
+  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -124,6 +145,24 @@ export default function ActiveRideChat() {
       }
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    }
+  };
+
+  const submitRating = async () => {
+    if (rating === 0 || !rideId) return;
+    try {
+      await addDoc(collection(db, 'ratings'), {
+        rideId,
+        customerId: user?.uid,
+        riderId: ride.riderId,
+        rating,
+        createdAt: serverTimestamp(),
+      });
+      setIsRatingSubmitted(true);
+      setShowRatingModal(false);
+      navigate('/dashboard');
+    } catch (error) {
+      console.error('Error submitting rating:', error);
     }
   };
 
@@ -266,7 +305,7 @@ export default function ActiveRideChat() {
               </div>
               <div className="flex gap-2">
                 <button 
-                  onClick={() => setIsCalling(true)}
+                  onClick={startCall}
                   className="p-2.5 rounded-xl bg-emerald-50 text-emerald-500 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-xs"
                 >
                   <Phone size={16} />
@@ -355,7 +394,9 @@ export default function ActiveRideChat() {
                 
                 <div className="text-center">
                   <h2 className="text-2xl font-bold mb-1">{ride.riderName}</h2>
-                  <p className="text-emerald-400 font-bold uppercase tracking-[0.2em] text-[10px]">{formatTime(callDuration)}</p>
+                  <p className="text-emerald-400 font-bold uppercase tracking-[0.2em] text-[10px]">
+                    {callStatus === 'calling' ? 'Calling...' : formatTime(callDuration)}
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 mt-4">
@@ -363,13 +404,73 @@ export default function ActiveRideChat() {
                     <Mic size={24} className="text-slate-400" />
                   </button>
                   <button 
-                    onClick={() => setIsCalling(false)}
+                    onClick={endCall}
                     className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors shadow-xl shadow-red-500/20"
                   >
                     <PhoneOff size={24} />
                   </button>
                 </div>
               </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+        
+        {/* Rating Modal */}
+        <AnimatePresence>
+          {showRatingModal && (
+            <motion.div 
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-100 flex items-center justify-center p-6 bg-slate-900/60 backdrop-blur-sm"
+            >
+              <motion.div 
+                initial={{ scale: 0.9, y: 20 }}
+                animate={{ scale: 1, y: 0 }}
+                className="bg-white rounded-[2.5rem] p-8 max-w-sm w-full shadow-2xl text-center"
+              >
+                <div className="w-20 h-20 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-6 text-emerald-500">
+                  <CheckCircle size={40} />
+                </div>
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">Ride Completed!</h2>
+                <p className="text-sm text-slate-500 mb-8 leading-relaxed">
+                  How was your journey with <span className="font-bold text-slate-700">{ride?.riderName}</span>?
+                </p>
+
+                <div className="flex justify-center gap-3 mb-10">
+                  {[1, 2, 3, 4, 5].map((s) => (
+                    <button 
+                      key={s} 
+                      onClick={() => setRating(s)}
+                      className={cn(
+                        "transition-all duration-300 transform",
+                        rating >= s ? "text-amber-400 scale-125" : "text-slate-200 hover:text-amber-200"
+                      )}
+                    >
+                      <Star size={32} fill={rating >= s ? "currentColor" : "none"} />
+                    </button>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <EmeraldButton 
+                    onClick={submitRating}
+                    disabled={rating === 0}
+                    className="w-full py-4 rounded-2xl text-sm font-bold shadow-lg shadow-emerald-100"
+                  >
+                    Submit Rating
+                  </EmeraldButton>
+                  <button 
+                    onClick={() => {
+                      setShowRatingModal(false);
+                      navigate('/dashboard');
+                    }}
+                    className="text-xs font-bold text-slate-400 uppercase tracking-widest hover:text-slate-600 transition-colors"
+                  >
+                    Skip for now
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
           )}
         </AnimatePresence>

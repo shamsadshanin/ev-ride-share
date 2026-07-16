@@ -1,5 +1,4 @@
-import React from "react";
-import { useState } from 'react';
+import React, { useState, useEffect } from "react";
 import { useNavigate } from 'react-router-dom';
 import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
@@ -7,15 +6,33 @@ import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { Input } from '@/src/components/ui/Input';
-import { MapPin, Car, Bike, Send, Minus, Plus, AlertCircle } from 'lucide-react';
+import { MapPin, Car, Bike, Send, Minus, Plus, AlertCircle, Navigation, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import L from 'leaflet';
 import { cn } from '@/src/lib/utils';
 
+// Fix Leaflet icon issue
+const DefaultIcon = L.icon({
+  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41]
+});
+L.Marker.prototype.options.icon = DefaultIcon;
+
+function LocationMarker({ position, label }: { position: [number, number], label: string }) {
+  return (
+    <Marker position={position}>
+      <Popup>{label}</Popup>
+    </Marker>
+  );
+}
+
 const vehicleTypes = [
-  { id: 'ev-car', label: 'EV Car', seats: '1-4 seats', range: 'BDT 40-80', icon: <Car className="w-6 h-6 text-emerald-500" /> },
-  { id: 'ebike', label: 'eBike', seats: '1-2 seats', range: 'BDT 20-40', icon: <Bike className="w-6 h-6 text-slate-400" /> },
-  { id: 'cng', label: 'CNG', seats: '1-3 seats', range: 'BDT 30-60', icon: <Send className="w-6 h-6 text-slate-400" /> },
+  { id: 'ev-car', label: 'EV Car', seats: '1-4 seats', range: 'BDT 40-80', icon: <Car className="w-6 h-6" fill="currentColor" /> },
+  { id: 'ebike', label: 'eBike', seats: '1-2 seats', range: 'BDT 20-40', icon: <Bike className="w-6 h-6" fill="currentColor" /> },
+  { id: 'cng', label: 'CNG Auto', seats: '1-3 seats', range: 'BDT 30-60', icon: <Navigation className="w-6 h-6 rotate-45" fill="currentColor" /> },
 ];
 
 export default function PostRide() {
@@ -24,12 +41,16 @@ export default function PostRide() {
   const [selectedVehicle, setSelectedVehicle] = useState('ev-car');
   const [seats, setSeats] = useState(2);
   const [pickup, setPickup] = useState('IUB, Dhaka');
-  const [destination, setDestination] = useState('sfsoft BD, Mirpur');
+  const [destination, setDestination] = useState('Mirpur, Dhaka');
   const [fare, setFare] = useState(50);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  React.useEffect(() => {
+  // Default positions for map markers (Simulated)
+  const pickupPos: [number, number] = [23.815, 90.420];
+  const destPos: [number, number] = [23.805, 90.410];
+
+  useEffect(() => {
     const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
     if (seats > maxSeats) {
       setSeats(maxSeats);
@@ -39,7 +60,6 @@ export default function PostRide() {
   const handlePostRide = async () => {
     if (!user) return;
     
-    // Validate seats
     const vehicle = vehicleTypes.find(v => v.id === selectedVehicle);
     if (vehicle) {
       const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
@@ -77,48 +97,53 @@ export default function PostRide() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-4xl mx-auto space-y-6">
-        <header>
-          <h1 className="text-3xl font-bold text-slate-800 mb-1">Post a Ride</h1>
-          <p className="text-slate-500 font-medium">Book your next EV journey</p>
+      <div className="max-w-4xl mx-auto space-y-6 pb-20">
+        <header className="px-4 lg:px-0">
+          <h1 className="text-2xl lg:text-3xl font-bold text-slate-800 mb-1">Post a Ride</h1>
+          <p className="text-slate-500 font-medium text-sm">Book your next EV journey</p>
         </header>
 
-        {/* Live Map Preview Placeholder */}
-        <GlassCard className="p-0 overflow-hidden h-64 bg-slate-100 relative border-slate-200">
-           <div className="absolute inset-0 grid grid-cols-6 grid-rows-4 gap-4 p-8 opacity-20">
-             {Array.from({ length: 24 }).map((_, i) => (
-               <div key={i} className="bg-slate-400 rounded-lg" />
-             ))}
+        {/* Live Map Preview */}
+        <GlassCard className="p-0 overflow-hidden h-72 lg:h-80 bg-slate-100 relative border-slate-200 shadow-xl shadow-slate-200/50 rounded-[2.5rem] z-0 mx-4 lg:mx-0">
+           <MapContainer 
+             center={[23.8103, 90.4125]} 
+             zoom={13} 
+             style={{ height: '100%', width: '100%' }}
+             zoomControl={false}
+           >
+             <TileLayer
+               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+             />
+             <LocationMarker position={pickupPos} label="Pickup: IUB" />
+             <LocationMarker position={destPos} label="Destination: Mirpur" />
+           </MapContainer>
+
+           <div className="absolute top-4 left-4 z-10 space-y-2">
+              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-emerald-500" />
+                 <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight truncate max-w-[150px]">{pickup}</span>
+              </div>
+              <div className="bg-white/90 backdrop-blur px-3 py-1.5 rounded-xl border border-slate-200 shadow-sm flex items-center gap-2">
+                 <div className="w-2 h-2 rounded-full bg-red-500" />
+                 <span className="text-[10px] font-bold text-slate-700 uppercase tracking-tight truncate max-w-[150px]">{destination}</span>
+              </div>
            </div>
-           <div className="absolute inset-0 flex items-center justify-center">
-             <div className="relative w-full max-w-lg">
-                <div className="absolute left-1/4 top-1/2 w-4 h-4 bg-emerald-500 rounded-full ring-4 ring-emerald-500/20 z-10" />
-                <div className="absolute right-1/4 top-1/3 w-4 h-4 bg-red-500 rounded-full ring-4 ring-red-500/20 z-10" />
-                <svg className="w-full h-32 overflow-visible">
-                  <path 
-                    d="M 128 64 L 200 64 L 200 42 L 384 42" 
-                    fill="none" 
-                    stroke="#10b981" 
-                    strokeWidth="3" 
-                    strokeDasharray="8 6"
-                    className="opacity-60"
-                  />
-                </svg>
-             </div>
-           </div>
-           <div className="absolute bottom-4 right-4 bg-white/90 backdrop-blur px-4 py-1.5 rounded-full text-[10px] font-bold text-slate-500 uppercase tracking-widest shadow-sm border border-slate-200">
-             Live Map Preview
+
+           <div className="absolute bottom-4 right-4 z-10 bg-[#0f172a] text-white px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-xl flex items-center gap-2">
+             <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+             Live Map Active
            </div>
         </GlassCard>
 
-        <GlassCard className="p-10 space-y-8">
+        <GlassCard className="p-6 lg:p-10 space-y-8 rounded-[2.5rem] mx-4 lg:mx-0">
           <AnimatePresence>
             {error && (
               <motion.div
                 initial={{ opacity: 0, height: 0 }}
                 animate={{ opacity: 1, height: 'auto' }}
                 exit={{ opacity: 0, height: 0 }}
-                className="p-3 rounded-xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm font-medium"
+                className="p-4 rounded-2xl bg-red-50 border border-red-100 flex items-center gap-3 text-red-600 text-sm font-medium"
               >
                 <AlertCircle size={18} />
                 {error}
@@ -127,95 +152,127 @@ export default function PostRide() {
           </AnimatePresence>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Input 
-              label="Pickup Address" 
-              placeholder="IUB, Dhaka" 
-              icon={<MapPin className="text-emerald-500" size={18} />} 
-              value={pickup}
-              onChange={(e) => setPickup(e.target.value)}
-            />
-            <Input 
-              label="Destination Address" 
-              placeholder="sfsoft BD, Mirpur" 
-              icon={<MapPin className="text-red-500" size={18} />}
-              value={destination}
-              onChange={(e) => setDestination(e.target.value)}
-            />
+            <div className="relative group">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Pickup Point</label>
+              <div className="relative">
+                <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500" size={18} />
+                <input 
+                  type="text"
+                  placeholder="Where from?"
+                  value={pickup}
+                  onChange={(e) => setPickup(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-12 py-4 outline-none focus:border-emerald-500 transition-all font-medium text-slate-700"
+                />
+              </div>
+            </div>
+            <div className="relative group">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Destination</label>
+              <div className="relative">
+                <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 text-red-500" size={18} />
+                <input 
+                  type="text"
+                  placeholder="Where to?"
+                  value={destination}
+                  onChange={(e) => setDestination(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-100 rounded-2xl px-12 py-4 outline-none focus:border-red-500 transition-all font-medium text-slate-700"
+                />
+              </div>
+            </div>
           </div>
 
-          <div className="max-w-xs">
-            <Input 
-              label="Offer Amount (BDT)" 
-              placeholder="50" 
-              type="number"
-              value={fare}
-              onChange={(e) => setFare(Number(e.target.value))}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-end">
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Offer Fare (BDT)</label>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2 flex items-center gap-2">
+                <button 
+                  onClick={() => setFare(Math.max(10, fare - 10))}
+                  className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Minus size={20} className="text-slate-400" />
+                </button>
+                <div className="flex-1 text-center">
+                  <span className="text-2xl font-black text-slate-800">৳{fare}</span>
+                </div>
+                <button 
+                  onClick={() => setFare(fare + 10)}
+                  className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Plus size={20} className="text-slate-400" />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block ml-1">Seats Required</label>
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-2 flex items-center gap-2">
+                <button 
+                  onClick={() => setSeats(Math.max(1, seats - 1))}
+                  className="w-12 h-12 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  <Minus size={20} className="text-slate-400" />
+                </button>
+                <div className="flex-1 text-center">
+                  <span className="text-2xl font-black text-slate-800">{seats}</span>
+                </div>
+                <button 
+                  onClick={() => setSeats(Math.min(4, seats + 1))}
+                  className="w-12 h-12 rounded-xl bg-emerald-500 text-white flex items-center justify-center hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100"
+                >
+                  <Plus size={20} />
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="space-y-4">
-            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Select Vehicle</label>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 block ml-1">Select Eco-Vehicle</label>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               {vehicleTypes.map((v) => (
                 <button
                   key={v.id}
                   onClick={() => setSelectedVehicle(v.id)}
                   className={cn(
-                    "p-6 rounded-2xl border-2 text-left transition-all group",
+                    "p-5 rounded-2xl border-2 text-left transition-all group relative overflow-hidden",
                     selectedVehicle === v.id 
-                      ? "border-emerald-500 bg-emerald-50/50 ring-4 ring-emerald-500/5 shadow-lg shadow-emerald-100" 
+                      ? "border-emerald-500 bg-emerald-50/30" 
                       : "border-slate-100 bg-white hover:border-slate-200"
                   )}
                 >
                   <div className={cn(
-                    "w-12 h-12 rounded-xl mb-4 flex items-center justify-center transition-colors",
-                    selectedVehicle === v.id ? "bg-emerald-500 text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100"
+                    "w-12 h-12 rounded-xl mb-4 flex items-center justify-center transition-all",
+                    selectedVehicle === v.id ? "bg-emerald-500 text-white shadow-lg shadow-emerald-200" : "bg-slate-50 text-slate-400"
                   )}>
                     {v.icon}
                   </div>
-                  <h4 className={cn("font-bold mb-1 transition-colors", selectedVehicle === v.id ? "text-emerald-900" : "text-slate-800")}>
+                  <h4 className={cn("font-bold mb-0.5", selectedVehicle === v.id ? "text-emerald-900" : "text-slate-800")}>
                     {v.label}
                   </h4>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{v.seats}</p>
-                  <p className={cn("text-xs font-bold", selectedVehicle === v.id ? "text-emerald-600" : "text-slate-400")}>{v.range}</p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{v.seats}</p>
+                    <p className={cn("text-xs font-black", selectedVehicle === v.id ? "text-emerald-600" : "text-slate-400")}>{v.range}</p>
+                  </div>
+                  {selectedVehicle === v.id && (
+                    <motion.div 
+                      layoutId="active-vehicle"
+                      className="absolute top-2 right-2 w-2 h-2 bg-emerald-500 rounded-full"
+                    />
+                  )}
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="flex items-center justify-between py-4 border-t border-slate-50">
-            <div>
-              <p className="font-bold text-slate-800">Number of Seats</p>
-              <p className="text-xs text-slate-400">Select passenger count</p>
-            </div>
-            <div className="flex items-center gap-4 bg-slate-50 p-2 rounded-2xl">
-              <button 
-                onClick={() => setSeats(Math.max(1, seats - 1))}
-                className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center hover:bg-slate-50 transition-colors shadow-sm"
-              >
-                <Minus size={18} className="text-slate-400" />
-              </button>
-              <span className="text-xl font-black text-slate-800 min-w-[2ch] text-center">{seats}</span>
-              <button 
-                onClick={() => setSeats(Math.min(4, seats + 1))}
-                className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center hover:bg-emerald-600 transition-colors shadow-lg shadow-emerald-100"
-              >
-                <Plus size={18} className="text-white" />
-              </button>
-            </div>
-          </div>
-
           <EmeraldButton 
-            className="w-full py-5 text-lg"
+            className="w-full py-6 text-lg font-bold rounded-[2rem] shadow-xl shadow-emerald-100 mt-4 group"
             onClick={handlePostRide}
             disabled={loading || !user}
           >
             {loading ? (
-              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+              <Loader2 className="w-6 h-6 animate-spin" />
             ) : (
-              <Send className="w-5 h-5 rotate-[-15deg]" />
+              <Send className="w-6 h-6 rotate-[-15deg] group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
             )}
-            {loading ? 'Posting Request...' : 'Post Ride Request'}
+            <span className="ml-2">{loading ? 'Posting Request...' : 'Post Ride Request'}</span>
           </EmeraldButton>
         </GlassCard>
       </div>
