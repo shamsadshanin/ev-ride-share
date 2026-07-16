@@ -40,10 +40,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
   const links = userType === 'customer' ? customerLinks : riderLinks;
 
   return (
-    <aside className="w-64 h-full bg-[#0f172a] text-white flex flex-col shadow-2xl border-r border-white/5">
+    <aside className="glass-dark w-64 h-full text-white flex flex-col border-r border-white/10">
       <div className="p-8">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+          <div className="w-10 h-10 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-xl flex items-center justify-center glow-emerald">
             <Send className="text-white w-6 h-6 rotate-[-15deg]" />
           </div>
           <div>
@@ -56,7 +56,7 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       <nav className="flex-1 px-4 space-y-2 mt-4">
         {links.map((link) => {
           const isDisabled = !isVerified && link.path !== '/dashboard' && link.path !== '/rider/dashboard';
-          
+
           return (
             <NavLink
               key={link.path}
@@ -71,10 +71,10 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
               }}
               className={({ isActive }) => cn(
                 "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group",
-                isActive 
-                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                  : "text-slate-400 hover:bg-white/5 hover:text-white",
-                isDisabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-slate-400"
+                isActive
+                  ? "bg-emerald-500/15 text-emerald-300 border border-emerald-400/30 shadow-lg shadow-emerald-900/30"
+                  : "text-slate-300 hover:bg-white/10 hover:text-white",
+                isDisabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-slate-300"
               )}
             >
               <link.icon className="w-5 h-5" />
@@ -85,22 +85,22 @@ export function Sidebar({ onClose }: { onClose?: () => void }) {
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-4">
-        <button 
+        <button
           onClick={handleLogout}
-          className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-400 hover:text-white transition-colors rounded-xl hover:bg-white/5"
+          className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-300 hover:text-white transition-colors rounded-xl hover:bg-white/10"
         >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Log Out</span>
         </button>
 
-        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5">
-          <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center relative overflow-hidden">
-             <User className="w-6 h-6 text-slate-400" />
-             <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0f172a] rounded-full" />
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center relative overflow-hidden glow-emerald">
+             <User className="w-6 h-6 text-white" />
+             <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-300 border-2 border-[#0f172a] rounded-full" />
           </div>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-semibold truncate">{userName}</p>
-            <p className="text-[10px] text-emerald-400 font-medium">{userStatus}</p>
+            <p className="text-[10px] text-emerald-300 font-medium">{userStatus}</p>
           </div>
         </div>
       </div>
