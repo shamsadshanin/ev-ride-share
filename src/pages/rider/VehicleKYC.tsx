@@ -137,6 +137,7 @@ export default function VehicleKYC() {
       // Update user profile status
       await setDoc(doc(db, 'users', user.uid), {
         kycStatus: 'Pending',
+        vehicleType: selectedType,
         updatedAt: serverTimestamp(),
       }, { merge: true });
 

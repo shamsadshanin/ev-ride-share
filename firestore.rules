@@ -11,7 +11,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isOwner(userId);
+      // Owner can update their own profile. Any signed-in user may update
+      // only the rider rating aggregates (written by the customer after a ride).
+      function ratingFieldsOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['rating', 'completedTrips', 'updatedAt']);
+      }
+      allow write: if isOwner(userId) || (isSignedIn() && ratingFieldsOnly());
     }
 
     match /rides/{rideId} {

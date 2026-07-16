@@ -11,9 +11,10 @@ import { createNotification } from '@/src/lib/notifications';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { Phone, Send, User, MessageSquare, MapPin, Loader2, CheckCircle, Users, AlertCircle, ChevronLeft, Mic, X, PhoneOff } from 'lucide-react';
+import { Phone, Send, User, MessageSquare, MapPin, Loader2, CheckCircle, Users, AlertCircle, ChevronLeft, Mic, MicOff, PhoneOff, X } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { useWebRTC } from '@/src/lib/useWebRTC';
 
 // Fix Leaflet icon issue
 const DefaultIcon = L.icon({
@@ -36,19 +37,37 @@ export default function ActiveTrip() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const rideId = searchParams.get('rideId');
-  const { user, profile } = useAuthStore();
-  
+  const { user, profile, refreshProfile } = useAuthStore();
+
   const [rides, setRides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [selectedRideId, setSelectedRideId] = useState<string | null>(rideId);
-  const [viewMode, setViewMode] = useState<'list' | 'details'>('list');
-  const [isCalling, setIsCalling] = useState(false);
+  const [viewMode, setViewMode] = useState<'list' | 'details'>('details');
   const [callDuration, setCallDuration] = useState(0);
-  
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const timerRef = useRef<any>(null);
+
+  const selectedRide = rides.find(r => r.id === selectedRideId) || rides[0];
+
+  const {
+    status: callStatus,
+    muted,
+    error: callError,
+    remoteAudioRef,
+    startCall,
+    endCall,
+    toggleMute,
+  } = useWebRTC({
+    rideId: selectedRideId,
+    selfId: user?.uid,
+    peerId: selectedRide?.customerId,
+    peerName: selectedRide?.customerName,
+  });
+
+  const isCalling = callStatus !== 'idle';
 
   useEffect(() => {
     if (!user) return;
@@ -63,8 +82,12 @@ export default function ActiveTrip() {
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const activeRides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setRides(activeRides);
-      if (activeRides.length > 0 && !selectedRideId) {
-        setSelectedRideId(activeRides[0].id);
+      if (activeRides.length > 0) {
+        if (!selectedRideId || !activeRides.some(r => r.id === selectedRideId)) {
+          setSelectedRideId(activeRides[0].id);
+        }
+      } else {
+        setSelectedRideId(null);
       }
       setLoading(false);
     }, (error) => {
@@ -98,8 +121,6 @@ export default function ActiveTrip() {
     return () => unsubscribe();
   }, [selectedRideId]);
 
-  const [callStatus, setCallStatus] = useState<'idle' | 'calling' | 'connected'>('idle');
-
   useEffect(() => {
     if (callStatus === 'connected') {
       timerRef.current = setInterval(() => {
@@ -111,17 +132,6 @@ export default function ActiveTrip() {
     }
     return () => clearInterval(timerRef.current);
   }, [callStatus]);
-
-  const startCall = () => {
-    setCallStatus('calling');
-    setTimeout(() => setCallStatus('connected'), 2000);
-    setIsCalling(true);
-  };
-
-  const endCall = () => {
-    setCallStatus('idle');
-    setIsCalling(false);
-  };
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -156,12 +166,14 @@ export default function ActiveTrip() {
 
   const handleCompleteRide = async (id: string) => {
     try {
+      const ride = rides.find(r => r.id === id);
+      const fare = Number(ride?.finalFare || ride?.fare || 0);
+
       await updateDoc(doc(db, 'rides', id), {
         status: 'Completed',
         completedAt: serverTimestamp(),
       });
-      
-      const ride = rides.find(r => r.id === id);
+
       if (ride?.customerId) {
         await createNotification(
           ride.customerId,
@@ -169,6 +181,21 @@ export default function ActiveTrip() {
           'Your trip has been completed successfully. Hope you had a great ride!',
           'success'
         );
+      }
+
+      if (user) {
+        const userRef = doc(db, 'users', user.uid);
+        const prevEarnings = Number(profile?.todayEarnings?.toString().replace(/[^0-9.]/g, '') || 0);
+        const prevTrips = Number(profile?.todayTrips || 0);
+        const prevCompleted = Number(profile?.completedTrips || 0);
+        await updateDoc(userRef, {
+          todayEarnings: `BDT ${(prevEarnings + fare).toFixed(0)}`,
+          todayTrips: prevTrips + 1,
+          completedTrips: prevCompleted + 1,
+          totalEarnings: `BDT ${(Number(profile?.totalEarnings?.toString().replace(/[^0-9.]/g, '') || 0) + fare).toFixed(0)}`,
+          updatedAt: serverTimestamp(),
+        });
+        await refreshProfile();
       }
 
       if (rides.length <= 1) {
@@ -201,7 +228,6 @@ export default function ActiveTrip() {
     }
   };
 
-  const selectedRide = rides.find(r => r.id === selectedRideId) || rides[0];
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -222,12 +248,22 @@ export default function ActiveTrip() {
   if (rides.length === 0) {
     return (
       <DashboardLayout>
-        <div className="h-96 flex flex-col items-center justify-center gap-4 text-slate-400">
-          <MapPin size={48} className="opacity-20" />
-          <p className="font-bold uppercase tracking-widest text-xs">No active trips found</p>
-          <EmeraldButton onClick={() => navigate('/rider/dashboard')} className="mt-4">
-             Back to Dashboard
-          </EmeraldButton>
+        <div className="max-w-md mx-auto mt-20 flex flex-col items-center justify-center gap-5 text-slate-400 text-center">
+          <div className="w-20 h-20 rounded-full bg-slate-50 flex items-center justify-center">
+            <MapPin size={36} className="opacity-30" />
+          </div>
+          <div>
+            <p className="font-bold text-slate-600 text-lg">No active trips</p>
+            <p className="text-sm font-medium mt-1">When a customer accepts your bid, the trip will appear here.</p>
+          </div>
+          <div className="flex gap-3">
+            <EmeraldButton onClick={() => navigate('/rider/requests')} variant="secondary">
+              Find Requests
+            </EmeraldButton>
+            <EmeraldButton onClick={() => navigate('/rider/dashboard')}>
+              Back to Dashboard
+            </EmeraldButton>
+          </div>
         </div>
       </DashboardLayout>
     );
@@ -235,11 +271,11 @@ export default function ActiveTrip() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 h-[calc(100vh-12rem)] relative">
-        
+      <div className="max-w-6xl mx-auto flex flex-col lg:flex-row gap-6 lg:h-[calc(100vh-10rem)] min-h-0 relative">
+
         {/* Left Side: Passenger Manifest */}
         <div className={cn(
-          "w-full lg:w-96 flex flex-col gap-6 overflow-y-auto transition-all duration-300",
+          "w-full lg:w-96 shrink-0 flex flex-col gap-6 overflow-y-auto transition-all duration-300 min-h-0",
           viewMode === 'details' ? "hidden lg:flex" : "flex"
         )}>
            <GlassCard className="p-6">
@@ -247,11 +283,11 @@ export default function ActiveTrip() {
                 <Users className="text-emerald-500" />
                 <h3 className="text-xl font-bold text-slate-800 tracking-tight">Passenger Manifest</h3>
              </div>
-             
+
              <div className="space-y-3">
                 {rides.map((r) => (
-                  <div 
-                    key={r.id} 
+                  <div
+                    key={r.id}
                     onClick={() => {
                       setSelectedRideId(r.id);
                       setViewMode('details');
@@ -277,7 +313,7 @@ export default function ActiveTrip() {
                              <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest truncate">{r.destination}</p>
                           </div>
                        </div>
-                       <button 
+                       <button
                          onClick={(e) => {
                            e.stopPropagation();
                            handleToggleOnboard(r.id, r.rideSubStatus);
@@ -295,7 +331,7 @@ export default function ActiveTrip() {
                           <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Est. Fare</span>
                           <span className="text-sm font-black text-slate-800">৳{r.finalFare || r.fare}</span>
                        </div>
-                       <EmeraldButton 
+                       <EmeraldButton
                          onClick={(e) => {
                            e.stopPropagation();
                            handleCompleteRide(r.id);
@@ -310,37 +346,37 @@ export default function ActiveTrip() {
              </div>
            </GlassCard>
 
-          <GlassCard className="p-6 bg-slate-900 text-white border-none shadow-xl shadow-slate-100 hidden lg:block">
-             <div className="flex items-center justify-between mb-4">
-                <h4 className="font-bold">Trip Summary</h4>
-                <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-1 rounded-lg">
-                   <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
-                   <span className="text-[8px] font-black uppercase">Live</span>
-                </div>
-             </div>
-             <div className="grid grid-cols-2 gap-3">
-                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                   <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Onboard</p>
-                   <p className="text-lg font-black">{rides.filter(r => r.rideSubStatus === 'Onboard').length}</p>
-                </div>
-                <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
-                   <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Pending</p>
-                   <p className="text-lg font-black">{rides.filter(r => r.rideSubStatus !== 'Onboard').length}</p>
-                </div>
-             </div>
-          </GlassCard>
+           <GlassCard className="p-6 bg-slate-900 text-white border-none shadow-xl shadow-slate-100 hidden lg:block">
+              <div className="flex items-center justify-between mb-4">
+                 <h4 className="font-bold">Trip Summary</h4>
+                 <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-1 rounded-lg">
+                    <div className="w-1.5 h-1.5 bg-emerald-500 rounded-full animate-pulse" />
+                    <span className="text-[8px] font-black uppercase">Live</span>
+                 </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                 <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Onboard</p>
+                    <p className="text-lg font-black">{rides.filter(r => r.rideSubStatus === 'Onboard').length}</p>
+                 </div>
+                 <div className="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <p className="text-[8px] font-bold text-slate-500 uppercase tracking-widest mb-1">Pending</p>
+                    <p className="text-lg font-black">{rides.filter(r => r.rideSubStatus !== 'Onboard').length}</p>
+                 </div>
+              </div>
+           </GlassCard>
         </div>
 
         {/* Right Area: Map & Chat */}
         <div className={cn(
-          "flex-1 flex flex-col gap-6 overflow-hidden transition-all duration-300",
+          "flex-1 flex flex-col gap-6 overflow-hidden transition-all duration-300 min-h-[60vh] lg:min-h-0",
           viewMode === 'list' ? "hidden lg:flex" : "flex"
         )}>
            {/* Map Section */}
            <div className="h-48 lg:h-64 bg-slate-100 rounded-[2rem] border border-slate-200 overflow-hidden relative shrink-0 z-0">
-              <MapContainer 
-                center={[23.8103, 90.4125]} 
-                zoom={13} 
+              <MapContainer
+                center={[23.8103, 90.4125]}
+                zoom={13}
                 style={{ height: '100%', width: '100%' }}
                 zoomControl={false}
               >
@@ -359,7 +395,7 @@ export default function ActiveTrip() {
                     <span className="text-[10px] font-bold text-slate-700">Dhaka, Bangladesh</span>
                  </div>
               </div>
-              <button 
+              <button
                 onClick={() => setViewMode('list')}
                 className="absolute top-4 left-4 z-10 lg:hidden w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center text-slate-600 hover:text-emerald-500 transition-colors"
               >
@@ -368,7 +404,7 @@ export default function ActiveTrip() {
            </div>
 
            {/* Selected Ride Details & Chat */}
-           <GlassCard className="flex-1 flex flex-col p-0 overflow-hidden border-slate-100">
+           <GlassCard className="flex-1 flex flex-col p-0 overflow-hidden border-slate-100 min-h-0">
              <div className="px-6 lg:px-8 py-4 border-b border-slate-50 flex justify-between items-center bg-white/50 shrink-0">
                <div className="flex items-center gap-4 min-w-0">
                  <div className="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center border border-slate-200 shrink-0">
@@ -380,14 +416,20 @@ export default function ActiveTrip() {
                  </div>
                </div>
                <div className="flex gap-2 shrink-0">
-                 <button 
-                   onClick={startCall}
-                   className="p-2.5 rounded-xl bg-emerald-50 text-emerald-500 hover:bg-emerald-100 transition-all border border-emerald-100 shadow-xs"
+                 <button
+                   onClick={isCalling ? endCall : startCall}
+                   disabled={!selectedRide?.customerId}
+                   className={cn(
+                     "p-2.5 rounded-xl transition-all border shadow-xs",
+                     isCalling
+                       ? "bg-red-500 text-white border-red-500 hover:bg-red-600"
+                       : "bg-emerald-50 text-emerald-500 hover:bg-emerald-100 border border-emerald-100"
+                   )}
                  >
-                    <Phone size={16} />
+                   <Phone size={16} />
                  </button>
                  <button className="p-2.5 rounded-xl bg-slate-50 text-slate-400 hover:bg-slate-100 transition-all border border-slate-100 shadow-xs">
-                    <AlertCircle size={16} className="text-red-400" />
+                   <AlertCircle size={16} className="text-red-400" />
                  </button>
                </div>
              </div>
@@ -399,8 +441,8 @@ export default function ActiveTrip() {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start a conversation</p>
                   </div>
                 ) : messages.map((msg) => (
-                  <div 
-                    key={msg.id} 
+                  <div
+                    key={msg.id}
                     className={cn(
                       "flex flex-col max-w-[85%]",
                       msg.senderId === user?.uid ? "ml-auto items-end" : "items-start"
@@ -408,8 +450,8 @@ export default function ActiveTrip() {
                   >
                     <div className={cn(
                       "px-5 py-3 rounded-2xl text-sm font-medium leading-relaxed shadow-sm",
-                      msg.senderId === user?.uid 
-                        ? "bg-emerald-500 text-white rounded-tr-none shadow-emerald-100" 
+                      msg.senderId === user?.uid
+                        ? "bg-emerald-500 text-white rounded-tr-none shadow-emerald-100"
                         : "bg-white text-slate-700 rounded-tl-none border border-slate-100"
                     )}>
                       {msg.text}
@@ -424,7 +466,7 @@ export default function ActiveTrip() {
 
              <form onSubmit={handleSendMessage} className="p-4 lg:p-6 border-t border-slate-50 bg-white/50 shrink-0">
                <div className="flex gap-3">
-                  <input 
+                  <input
                     type="text"
                     placeholder="Type a message..."
                     value={input}
@@ -442,7 +484,7 @@ export default function ActiveTrip() {
         {/* Calling Overlay */}
         <AnimatePresence>
           {isCalling && (
-            <motion.div 
+            <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.9 }}
@@ -450,8 +492,14 @@ export default function ActiveTrip() {
             >
               <div className="flex flex-col items-center gap-8 text-white max-w-xs w-full">
                 <div className="relative">
-                  <div className="w-32 h-32 rounded-full bg-emerald-500/20 flex items-center justify-center animate-pulse">
-                    <div className="w-24 h-24 rounded-full bg-emerald-500 flex items-center justify-center shadow-2xl shadow-emerald-500/50">
+                  <div className={cn(
+                    "w-32 h-32 rounded-full flex items-center justify-center animate-pulse",
+                    callStatus === 'connected' ? "bg-emerald-500/20" : "bg-amber-500/20"
+                  )}>
+                    <div className={cn(
+                      "w-24 h-24 rounded-full flex items-center justify-center shadow-2xl",
+                      callStatus === 'connected' ? "bg-emerald-500 shadow-emerald-500/50" : "bg-amber-500 shadow-amber-500/50"
+                    )}>
                       <User size={48} />
                     </div>
                   </div>
@@ -459,19 +507,32 @@ export default function ActiveTrip() {
                     <Mic size={16} />
                   </div>
                 </div>
-                
+
                 <div className="text-center">
                   <h2 className="text-2xl font-bold mb-1">{selectedRide?.customerName || 'Customer'}</h2>
                   <p className="text-emerald-400 font-bold uppercase tracking-[0.2em] text-[10px]">
-                    {callStatus === 'calling' ? 'Calling...' : formatTime(callDuration)}
+                    {callStatus === 'connected'
+                      ? formatTime(callDuration)
+                      : callStatus === 'calling'
+                        ? 'Calling...'
+                        : 'Connecting...'}
                   </p>
+                  {callError && (
+                    <p className="text-red-300 text-xs mt-2">{callError}</p>
+                  )}
                 </div>
 
                 <div className="grid grid-cols-2 gap-8 mt-4">
-                  <button className="w-16 h-16 rounded-full bg-slate-800 flex items-center justify-center hover:bg-slate-700 transition-colors">
-                    <Mic size={24} className="text-slate-400" />
+                  <button
+                    onClick={toggleMute}
+                    className={cn(
+                      "w-16 h-16 rounded-full flex items-center justify-center hover:opacity-90 transition-colors shadow-xl",
+                      muted ? "bg-slate-700 text-red-300" : "bg-slate-800 text-white"
+                    )}
+                  >
+                    {muted ? <MicOff size={24} /> : <Mic size={24} />}
                   </button>
-                  <button 
+                  <button
                     onClick={endCall}
                     className="w-16 h-16 rounded-full bg-red-500 flex items-center justify-center hover:bg-red-600 transition-colors shadow-xl shadow-red-500/20"
                   >
@@ -482,6 +543,9 @@ export default function ActiveTrip() {
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Hidden element to play the remote audio stream */}
+        <audio ref={remoteAudioRef} autoPlay playsInline />
       </div>
     </DashboardLayout>
   );

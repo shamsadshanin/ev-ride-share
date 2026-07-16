@@ -42,17 +42,20 @@ export default function LiveRequestsMap() {
     const collectionPath = 'rides';
     const q = query(collection(db, collectionPath), where('status', '==', 'Pending'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const requestsData = snapshot.docs.map(doc => {
-        const data = doc.data();
-        // Use doc ID as seed for consistent random positioning
-        const seed = doc.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        return {
-          id: doc.id,
-          ...data,
-          top: data.top || `${20 + (seed % 60)}%`,
-          left: data.left || `${20 + ((seed * 1.3) % 60)}%`,
-        };
-      }) as RideRequest[];
+      const riderVehicle = profile?.vehicleType;
+      const requestsData = snapshot.docs
+        .map(doc => {
+          const data = doc.data();
+          // Use doc ID as seed for consistent random positioning
+          const seed = doc.id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+          return {
+            id: doc.id,
+            ...data,
+            top: data.top || `${20 + (seed % 60)}%`,
+            left: data.left || `${20 + ((seed * 1.3) % 60)}%`,
+          } as RideRequest;
+        })
+        .filter(req => !riderVehicle || req.vehicleType === riderVehicle);
       setRequests(requestsData);
       setLoading(false);
     }, (error) => {
@@ -60,7 +63,7 @@ export default function LiveRequestsMap() {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [profile?.vehicleType]);
 
   const handleBid = async (rideId: string) => {
     const amount = bidAmounts[rideId];

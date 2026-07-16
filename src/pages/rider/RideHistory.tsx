@@ -39,6 +39,12 @@ export default function RideHistory() {
     return ride.status === activeTab;
   });
 
+  const completedRides = history.filter(r => r.status === 'Completed');
+  const totalEarned = completedRides.reduce(
+    (sum, r) => sum + Number(r.finalFare || r.fare || 0),
+    0
+  );
+
   return (
     <DashboardLayout>
       <div className="max-w-6xl mx-auto space-y-8">
@@ -47,15 +53,15 @@ export default function RideHistory() {
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold text-slate-800 mb-1">Ride History</h1>
-            <p className="text-slate-500 font-medium">All past trips • {profile?.completedTrips || '0'} total completed</p>
+            <p className="text-slate-500 font-medium">All past trips • {completedRides.length} total completed</p>
           </div>
           <div className="flex gap-12">
             <div className="text-right">
-               <p className="text-lg font-black text-slate-800">{profile?.totalEarnings || 'BDT 0'}</p>
+               <p className="text-lg font-black text-slate-800">BDT {totalEarned}</p>
                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total earned</p>
             </div>
             <div className="text-right">
-               <p className="text-lg font-black text-slate-800">{profile?.completedTrips || '0'}</p>
+               <p className="text-lg font-black text-slate-800">{completedRides.length}</p>
                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completed</p>
             </div>
           </div>

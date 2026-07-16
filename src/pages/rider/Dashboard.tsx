@@ -27,6 +27,7 @@ export default function RiderDashboard() {
   const isVerified = kycStatus === 'Approved';
 
   const [activeRide, setActiveRide] = React.useState<any>(null);
+  const [derivedStats, setDerivedStats] = React.useState({ completedTrips: 0, totalEarnings: 0 });
 
   React.useEffect(() => {
     if (!user || !isVerified) return;
@@ -53,8 +54,8 @@ export default function RiderDashboard() {
   }, [user, isVerified]);
 
   const stats = [
-    { label: "Today's Earnings", value: isVerified ? (profile?.todayEarnings || 'BDT 0') : 'BDT 0', icon: <Wallet className="text-emerald-500" />, sub: '' },
-    { label: 'Trips Today', value: isVerified ? (profile?.todayTrips || '0') : '0', icon: <MapIcon className="text-blue-500" />, sub: '' },
+    { label: "Today's Earnings", value: isVerified ? `BDT ${derivedStats.totalEarnings}` : 'BDT 0', icon: <Wallet className="text-emerald-500" />, sub: '' },
+    { label: 'Trips Completed', value: isVerified ? derivedStats.completedTrips.toString() : '0', icon: <MapIcon className="text-blue-500" />, sub: '' },
     { label: 'Rating', value: isVerified ? (profile?.rating ? `${profile.rating} ★` : '5.0 ★') : 'N/A', icon: <Star className="text-amber-500" />, sub: '' },
     { label: 'Online Hours', value: isVerified ? (profile?.onlineHours || '0 hrs') : '0 hrs', icon: <Clock className="text-purple-500" />, sub: '' },
   ];
@@ -69,7 +70,7 @@ export default function RiderDashboard() {
       border: activeRide ? 'border-emerald-100' : 'border-blue-100', 
       path: activeRide ? `/rider/trip/active?rideId=${activeRide.id}` : '/rider/history' 
     },
-    { label: 'My Rides', sub: isVerified ? `${profile?.completedTrips || '0'} total completed` : '0 completed', icon: <Car className="text-purple-500" />, bg: 'bg-purple-50/50', border: 'border-purple-100', path: '/rider/history' },
+    { label: 'My Rides', sub: isVerified ? `${derivedStats.completedTrips} total completed` : '0 completed', icon: <Car className="text-purple-500" />, bg: 'bg-purple-50/50', border: 'border-purple-100', path: '/rider/history' },
     { label: 'Profile', sub: kycStatus === 'Approved' ? 'KYC Verified ✓' : 'Action Required', icon: <UserCheck className="text-amber-500" />, bg: 'bg-amber-50/50', border: 'border-amber-100', path: '/rider/profile' },
   ];
 
@@ -83,13 +84,13 @@ export default function RiderDashboard() {
     }
 
     const collectionPath = 'rides';
-    const q = query(
+    const requestsQ = query(
       collection(db, collectionPath),
       where('status', '==', 'Pending'),
       limit(5)
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const unsubscribeRequests = onSnapshot(requestsQ, (snapshot) => {
       const requests = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
@@ -100,8 +101,31 @@ export default function RiderDashboard() {
       handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
-    return () => unsubscribe();
-  }, [isVerified]);
+    const completedQ = query(
+      collection(db, collectionPath),
+      where('riderId', '==', user?.uid),
+      where('status', '==', 'Completed')
+    );
+
+    const unsubscribeCompleted = onSnapshot(completedQ, (snapshot) => {
+      let total = 0;
+      snapshot.docs.forEach(doc => {
+        const fare = Number(doc.data().finalFare || doc.data().fare || 0);
+        total += fare;
+      });
+      setDerivedStats({
+        completedTrips: snapshot.size,
+        totalEarnings: total,
+      });
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
+    });
+
+    return () => {
+      unsubscribeRequests();
+      unsubscribeCompleted();
+    };
+  }, [isVerified, user]);
 
   return (
     <DashboardLayout>

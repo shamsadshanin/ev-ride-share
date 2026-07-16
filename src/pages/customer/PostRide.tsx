@@ -6,11 +6,12 @@ import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { MapPin, Car, Bike, Send, Minus, Plus, AlertCircle, Navigation, Loader2 } from 'lucide-react';
+import { MapPin, Minus, Plus, AlertCircle, Loader2, Navigation, Send } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { cn } from '@/src/lib/utils';
+import { VEHICLE_TYPES } from '@/src/lib/vehicleTypes';
 
 // Fix Leaflet icon issue
 const DefaultIcon = L.icon({
@@ -29,16 +30,12 @@ function LocationMarker({ position, label }: { position: [number, number], label
   );
 }
 
-const vehicleTypes = [
-  { id: 'ev-car', label: 'EV Car', seats: '1-4 seats', range: 'BDT 40-80', icon: <Car className="w-6 h-6" fill="currentColor" /> },
-  { id: 'ebike', label: 'eBike', seats: '1-2 seats', range: 'BDT 20-40', icon: <Bike className="w-6 h-6" fill="currentColor" /> },
-  { id: 'cng', label: 'CNG Auto', seats: '1-3 seats', range: 'BDT 30-60', icon: <Navigation className="w-6 h-6 rotate-45" fill="currentColor" /> },
-];
+const vehicleTypes = VEHICLE_TYPES;
 
 export default function PostRide() {
   const navigate = useNavigate();
   const { user, profile } = useAuthStore();
-  const [selectedVehicle, setSelectedVehicle] = useState('ev-car');
+  const [selectedVehicle, setSelectedVehicle] = useState('EV Car');
   const [seats, setSeats] = useState(2);
   const [pickup, setPickup] = useState('IUB, Dhaka');
   const [destination, setDestination] = useState('Mirpur, Dhaka');
@@ -51,7 +48,8 @@ export default function PostRide() {
   const destPos: [number, number] = [23.805, 90.410];
 
   useEffect(() => {
-    const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
+    const vehicle = vehicleTypes.find(v => v.id === selectedVehicle);
+    const maxSeats = vehicle?.maxSeats ?? 4;
     if (seats > maxSeats) {
       setSeats(maxSeats);
     }
@@ -62,7 +60,7 @@ export default function PostRide() {
     
     const vehicle = vehicleTypes.find(v => v.id === selectedVehicle);
     if (vehicle) {
-      const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
+      const maxSeats = vehicle.maxSeats;
       if (seats > maxSeats) {
         setError(`Maximum seats for ${vehicle.label} is ${maxSeats}`);
         return;
