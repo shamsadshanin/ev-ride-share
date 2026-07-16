@@ -19,7 +19,7 @@ const riderLinks = [
   { icon: Bell, label: 'Notifications', path: '/rider/notifications' },
 ];
 
-export function Sidebar() {
+export function Sidebar({ onClose }: { onClose?: () => void }) {
   const { profile, user } = useAuthStore();
   const userType = profile?.userType?.toLowerCase() || 'customer';
   const userName = profile?.fullName || user?.displayName || 'User';
@@ -40,7 +40,7 @@ export function Sidebar() {
   const links = userType === 'customer' ? customerLinks : riderLinks;
 
   return (
-    <aside className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50">
+    <aside className="w-64 h-full bg-[#0f172a] text-white flex flex-col shadow-2xl border-r border-white/5">
       <div className="p-8">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
@@ -65,6 +65,8 @@ export function Sidebar() {
                 if (isDisabled) {
                   e.preventDefault();
                   navigate(userType === 'customer' ? '/dashboard' : '/rider/dashboard');
+                } else {
+                  onClose?.();
                 }
               }}
               className={({ isActive }) => cn(
