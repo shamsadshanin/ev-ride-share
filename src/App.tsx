@@ -22,6 +22,8 @@ import RiderDashboard from './pages/rider/Dashboard';
 import LiveRequestsMap from './pages/rider/LiveRequestsMap';
 import ActiveTrip from './pages/rider/ActiveTrip';
 import RideHistory from './pages/rider/RideHistory';
+import RiderGroupChat from './pages/rider/GroupChat';
+import Notifications from './pages/shared/Notifications';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 // Temporary placeholder for protected screens
@@ -47,6 +49,24 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
+};
+
+const RootRedirect = () => {
+  const { user, profile, loading } = useAuthStore();
+
+  if (loading) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+      <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+
+  if (!user) return <Navigate to="/login" replace />;
+
+  if (profile?.userType === 'Rider') {
+    return <Navigate to="/rider/dashboard" replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
 };
 
 export default function App() {
@@ -82,16 +102,18 @@ export default function App() {
         <Route path="/post-ride" element={<ProtectedRoute><PostRide /></ProtectedRoute>} />
         <Route path="/driver-bids" element={<ProtectedRoute><DriverBids /></ProtectedRoute>} />
         <Route path="/active-rides" element={<ProtectedRoute><ActiveRideChat /></ProtectedRoute>} />
+        <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         
         <Route path="/rider/kyc" element={<ProtectedRoute><VehicleKYC /></ProtectedRoute>} />
         <Route path="/rider/dashboard" element={<ProtectedRoute><RiderDashboard /></ProtectedRoute>} />
         <Route path="/rider/requests" element={<ProtectedRoute><LiveRequestsMap /></ProtectedRoute>} />
         <Route path="/rider/trip/active" element={<ProtectedRoute><ActiveTrip /></ProtectedRoute>} />
         <Route path="/rider/history" element={<ProtectedRoute><RideHistory /></ProtectedRoute>} />
+        <Route path="/rider/chat" element={<ProtectedRoute><RiderGroupChat /></ProtectedRoute>} />
         <Route path="/rider/rides" element={<Navigate to="/rider/history" replace />} />
-        <Route path="/rider/notifications" element={<ProtectedRoute><Placeholder title="Notifications" userType="rider" userName="Nasrin Akter" /></ProtectedRoute>} />
+        <Route path="/rider/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<RootRedirect />} />
       </Routes>
     </Router>
   );

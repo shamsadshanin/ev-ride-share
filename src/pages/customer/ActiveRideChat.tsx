@@ -1,9 +1,13 @@
 import React from "react";
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
+import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
-import { Phone, Send, User, MessageSquare } from 'lucide-react';
+import { Phone, Send, User, MessageSquare, Loader2, MapPin } from 'lucide-react';
 import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 
@@ -16,7 +20,49 @@ const messages = [
 ];
 
 export default function ActiveRideChat() {
+  const [searchParams] = useSearchParams();
+  const rideId = searchParams.get('rideId');
+  const [ride, setRide] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [input, setInput] = useState('');
+
+  useEffect(() => {
+    if (!rideId) {
+      setLoading(false);
+      return;
+    }
+
+    const unsubscribe = onSnapshot(doc(db, 'rides', rideId), (docSnap) => {
+      if (docSnap.exists()) {
+        setRide({ id: docSnap.id, ...docSnap.data() });
+      }
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [rideId]);
+
+  if (loading) {
+    return (
+      <DashboardLayout>
+        <div className="h-96 flex flex-col items-center justify-center gap-4">
+          <Loader2 className="w-10 h-10 animate-spin text-emerald-500" />
+          <p className="font-bold text-slate-500 uppercase tracking-widest text-xs">Connecting to rider...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!ride) {
+    return (
+      <DashboardLayout>
+        <div className="h-96 flex flex-col items-center justify-center gap-4 text-slate-400">
+          <MapPin size={48} className="opacity-20" />
+          <p className="font-bold uppercase tracking-widest text-xs">No active ride found</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -31,10 +77,10 @@ export default function ActiveRideChat() {
               alt="EV" 
               className="w-full h-32 object-cover rounded-2xl mb-4 bg-slate-100"
             />
-            <h4 className="font-bold text-slate-800 text-lg mb-1">Walton EV Sedan</h4>
-            <p className="text-xs text-slate-500 mb-4 font-medium">DHA-5678 • Pearl White</p>
+            <h4 className="font-bold text-slate-800 text-lg mb-1">{ride.vehicleType?.toUpperCase()}</h4>
+            <p className="text-xs text-slate-500 mb-4 font-medium">{ride.riderName}</p>
             <div className="flex flex-wrap gap-2">
-              {['Electric', 'AC', '4 seats'].map(tag => (
+              {['Electric', 'AC', `${ride.seats} seats`].map(tag => (
                 <span key={tag} className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-600 text-[10px] font-black uppercase tracking-wider">
                   {tag}
                 </span>
@@ -49,10 +95,10 @@ export default function ActiveRideChat() {
                 <User size={24} className="text-slate-300" />
               </div>
               <div>
-                <h4 className="font-bold text-slate-800">Nasrin Akter</h4>
+                <h4 className="font-bold text-slate-800">{ride.riderName}</h4>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-amber-500">4.9 ★</span>
-                  <span className="text-[10px] font-bold text-slate-400 uppercase">287 completed trips</span>
+                  <span className="text-[10px] font-bold text-slate-400 uppercase">Verified Rider</span>
                 </div>
               </div>
             </div>
@@ -60,16 +106,16 @@ export default function ActiveRideChat() {
             <div className="space-y-3 pt-4 border-t border-slate-50">
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-400">Route</span>
-                <span className="text-xs font-bold text-slate-700">IUB → sfsoft BD</span>
+                <span className="text-[10px] font-bold text-slate-700 truncate max-w-[120px]">{ride.pickup} → {ride.destination}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-400">Fare</span>
-                <span className="text-xs font-bold text-emerald-600">BDT 45</span>
+                <span className="text-xs font-bold text-emerald-600">BDT {ride.finalFare || ride.fare}</span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-xs font-bold text-slate-400">Status</span>
                 <span className="px-2 py-0.5 rounded-full bg-blue-100 text-blue-600 text-[10px] font-black uppercase tracking-wider">
-                  En Route
+                  {ride.status}
                 </span>
               </div>
             </div>
@@ -86,7 +132,7 @@ export default function ActiveRideChat() {
               </div>
               <div>
                 <h3 className="font-bold text-slate-800">Private Chat</h3>
-                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">Nasrin Akter • Online</p>
+                <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-widest">{ride.riderName} • Online</p>
               </div>
             </div>
             <EmeraldButton className="py-2.5 px-6 text-xs">

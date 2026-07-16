@@ -43,7 +43,7 @@ export default function Signup() {
         email,
         phone,
         userType,
-        kycStatus: 'Pending',
+        kycStatus: 'Not Started',
         userStatus: userType === 'Rider' ? 'Offline' : 'Active',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -76,14 +76,19 @@ export default function Signup() {
           email: user.email,
           phone: '',
           userType: 'Customer', // Default to Customer for Google Sign In
-          kycStatus: 'Pending',
+          kycStatus: 'Not Started',
           userStatus: 'Active',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
         navigate('/kyc');
       } else {
-        navigate('/dashboard');
+        const userData = userDoc.data();
+        if (userData.userType === 'Rider') {
+          navigate('/rider/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Google sign in failed.');

@@ -25,8 +25,20 @@ export default function Login() {
     setLoading(true);
     
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/dashboard');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+      
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.userType === 'Rider') {
+          navigate('/rider/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
+      } else {
+        navigate('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'Failed to sign in. Please check your credentials.');
       console.error(err);
@@ -53,14 +65,19 @@ export default function Login() {
           email: user.email,
           phone: '',
           userType: 'Customer', // Default to Customer for Google Sign In
-          kycStatus: 'Pending',
+          kycStatus: 'Not Started',
           userStatus: 'Active',
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
         navigate('/kyc');
       } else {
-        navigate('/dashboard');
+        const userData = userDoc.data();
+        if (userData.userType === 'Rider') {
+          navigate('/rider/dashboard');
+        } else {
+          navigate('/dashboard');
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Google sign in failed.');

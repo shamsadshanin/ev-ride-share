@@ -29,8 +29,26 @@ export default function PostRide() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  React.useEffect(() => {
+    const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
+    if (seats > maxSeats) {
+      setSeats(maxSeats);
+    }
+  }, [selectedVehicle, seats]);
+
   const handlePostRide = async () => {
     if (!user) return;
+    
+    // Validate seats
+    const vehicle = vehicleTypes.find(v => v.id === selectedVehicle);
+    if (vehicle) {
+      const maxSeats = selectedVehicle === 'ev-car' ? 4 : selectedVehicle === 'ebike' ? 1 : 3;
+      if (seats > maxSeats) {
+        setError(`Maximum seats for ${vehicle.label} is ${maxSeats}`);
+        return;
+      }
+    }
+
     setLoading(true);
     setError('');
 

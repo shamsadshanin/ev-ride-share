@@ -2,22 +2,40 @@ import React from "react";
 import { useState } from 'react';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
-
-const history = [
-  { id: 'EVR-1024', date: 'Jul 10, 2026', time: '10:45 AM', pickup: 'IUB, Dhaka', dest: 'sfsoft BD', pax: '2', fare: 'BDT 50', status: 'Completed' },
-  { id: 'EVR-1023', date: 'Jul 10, 2026', time: '09:12 AM', pickup: 'Mirpur 15', dest: 'Jamuna Future Park', pax: '1', fare: 'BDT 40', status: 'Completed' },
-  { id: 'EVR-1022', date: 'Jul 9, 2026', time: '05:30 PM', pickup: 'Gulshan 2', dest: 'Banani', pax: '1', fare: 'BDT 35', status: 'Cancelled' },
-  { id: 'EVR-1021', date: 'Jul 9, 2026', time: '02:15 PM', pickup: 'Uttara Sector 7', dest: 'Dhanmondi 27', pax: '3', fare: 'BDT 70', status: 'Completed' },
-  { id: 'EVR-1020', date: 'Jul 9, 2026', time: '11:00 AM', pickup: 'Motijheel', dest: 'Farmgate', pax: '2', fare: 'BDT 45', status: 'Completed' },
-  { id: 'EVR-1019', date: 'Jul 8, 2026', time: '08:30 AM', pickup: 'Khilgaon', dest: 'Paltan', pax: '1', fare: 'BDT 30', status: 'Cancelled' },
-  { id: 'EVR-1018', date: 'Jul 8, 2026', time: '06:00 PM', pickup: 'Shyamoli', dest: 'Asad Gate', pax: '2', fare: 'BDT 40', status: 'Completed' },
-  { id: 'EVR-1017', date: 'Jul 7, 2026', time: '03:45 PM', pickup: 'Badda', dest: 'Rampura', pax: '1', fare: 'BDT 25', status: 'Completed' },
-];
+import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
+import { db } from '@/src/lib/firebase';
+import { useAuthStore } from '@/src/store/useAuthStore';
 
 export default function RideHistory() {
+  const { user, profile } = useAuthStore();
   const [activeTab, setActiveTab] = useState('All');
+  const [history, setHistory] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  React.useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'rides'),
+      where('riderId', '==', user.uid),
+      orderBy('createdAt', 'desc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const rides = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setHistory(rides);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [user]);
+
+  const filteredHistory = history.filter(ride => {
+    if (activeTab === 'All') return true;
+    return ride.status === activeTab;
+  });
 
   return (
     <DashboardLayout>
@@ -27,15 +45,15 @@ export default function RideHistory() {
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-3xl font-bold text-slate-800 mb-1">Ride History</h1>
-            <p className="text-slate-500 font-medium">All past trips • 143 total completed</p>
+            <p className="text-slate-500 font-medium">All past trips • {profile?.completedTrips || '0'} total completed</p>
           </div>
           <div className="flex gap-12">
             <div className="text-right">
-               <p className="text-lg font-black text-slate-800">BDT 8,240</p>
+               <p className="text-lg font-black text-slate-800">{profile?.totalEarnings || 'BDT 0'}</p>
                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Total earned</p>
             </div>
             <div className="text-right">
-               <p className="text-lg font-black text-slate-800">143</p>
+               <p className="text-lg font-black text-slate-800">{profile?.completedTrips || '0'}</p>
                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Completed</p>
             </div>
           </div>
@@ -73,38 +91,61 @@ export default function RideHistory() {
                  </tr>
                </thead>
                <tbody className="divide-y divide-slate-50">
-                 {history.map((ride) => (
+                 {loading ? (
+                    <tr>
+                      <td colSpan={7} className="px-8 py-20 text-center">
+                        <div className="flex flex-col items-center gap-3">
+                          <Loader2 className="w-8 h-8 animate-spin text-emerald-500" />
+                          <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Loading history...</p>
+                        </div>
+                      </td>
+                    </tr>
+                 ) : filteredHistory.length > 0 ? filteredHistory.map((ride) => (
                    <tr key={ride.id} className="group hover:bg-slate-50/30 transition-colors">
-                     <td className="px-8 py-6 text-xs font-bold text-slate-400">{ride.id}</td>
+                     <td className="px-8 py-6 text-xs font-bold text-slate-400 uppercase">#{ride.id.slice(-6)}</td>
                      <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-700">{ride.date}</p>
-                        <p className="text-[10px] font-medium text-slate-400">{ride.time}</p>
+                        <p className="text-sm font-bold text-slate-700">
+                          {ride.createdAt?.toDate ? ride.createdAt.toDate().toLocaleDateString() : 'Today'}
+                        </p>
+                        <p className="text-[10px] font-medium text-slate-400">
+                          {ride.createdAt?.toDate ? ride.createdAt.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Just now'}
+                        </p>
                      </td>
                      <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
                            <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                           <span className="text-sm font-bold text-slate-600">{ride.pickup}</span>
+                           <span className="text-sm font-bold text-slate-600 truncate max-w-[150px]">{ride.pickup}</span>
                         </div>
                      </td>
                      <td className="px-8 py-6">
                         <div className="flex items-center gap-2">
                            <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
-                           <span className="text-sm font-bold text-slate-600">{ride.dest}</span>
+                           <span className="text-sm font-bold text-slate-600 truncate max-w-[150px]">{ride.destination}</span>
                         </div>
                      </td>
-                     <td className="px-8 py-6 text-sm font-bold text-slate-600 text-center">{ride.pax}</td>
-                     <td className="px-8 py-6 text-sm font-black text-slate-800">{ride.fare}</td>
+                     <td className="px-8 py-6 text-sm font-bold text-slate-600 text-center">{ride.seats}</td>
+                     <td className="px-8 py-6 text-sm font-black text-slate-800">BDT {ride.finalFare || ride.fare}</td>
                      <td className="px-8 py-6">
                         <div className={cn(
                           "px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider flex items-center justify-center gap-2",
-                          ride.status === 'Completed' ? "bg-emerald-50 text-emerald-600" : "bg-red-50 text-red-600"
+                          ride.status === 'Completed' ? "bg-emerald-50 text-emerald-600" : 
+                          ride.status === 'Cancelled' ? "bg-red-50 text-red-600" : "bg-blue-50 text-blue-600"
                         )}>
-                           <div className={cn("w-1 h-1 rounded-full", ride.status === 'Completed' ? "bg-emerald-500" : "bg-red-500")} />
+                           <div className={cn("w-1 h-1 rounded-full", 
+                             ride.status === 'Completed' ? "bg-emerald-500" : 
+                             ride.status === 'Cancelled' ? "bg-red-500" : "bg-blue-500"
+                           )} />
                            {ride.status}
                         </div>
                      </td>
                    </tr>
-                 ))}
+                 )) : (
+                   <tr>
+                     <td colSpan={7} className="px-8 py-20 text-center text-slate-400 font-medium italic">
+                       No ride history found.
+                     </td>
+                   </tr>
+                 )}
                </tbody>
              </table>
            </div>

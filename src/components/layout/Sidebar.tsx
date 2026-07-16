@@ -2,7 +2,7 @@ import { NavLink, useNavigate } from 'react-router-dom';
 import { signOut } from 'firebase/auth';
 import { auth } from '@/src/lib/firebase';
 import { useAuthStore } from '@/src/store/useAuthStore';
-import { LayoutDashboard, Send, Car, LogOut, Bell, User } from 'lucide-react';
+import { LayoutDashboard, Send, Car, LogOut, Bell, User, MessageSquare } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
 const customerLinks = [
@@ -14,6 +14,7 @@ const customerLinks = [
 const riderLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/rider/dashboard' },
   { icon: Car, label: 'My Rides', path: '/rider/history' },
+  { icon: MessageSquare, label: 'Community Chat', path: '/rider/chat' },
   { icon: Bell, label: 'Notifications', path: '/rider/notifications' },
 ];
 
@@ -22,8 +23,8 @@ export function Sidebar() {
   const userType = profile?.userType?.toLowerCase() || 'customer';
   const userName = profile?.fullName || user?.displayName || 'User';
   const userStatus = profile?.userStatus || 'Active';
+  const kycStatus = profile?.kycStatus || 'Not Started';
   const navigate = useNavigate();
-  const links = userType === 'customer' ? customerLinks : riderLinks;
 
   const handleLogout = async () => {
     try {
@@ -33,6 +34,9 @@ export function Sidebar() {
       console.error('Logout error:', error);
     }
   };
+
+  const isVerified = kycStatus === 'Approved';
+  const links = userType === 'customer' ? customerLinks : riderLinks;
 
   return (
     <aside className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50">
@@ -49,21 +53,32 @@ export function Sidebar() {
       </div>
 
       <nav className="flex-1 px-4 space-y-2 mt-4">
-        {links.map((link) => (
-          <NavLink
-            key={link.path}
-            to={link.path}
-            className={({ isActive }) => cn(
-              "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group",
-              isActive 
-                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
-                : "text-slate-400 hover:bg-white/5 hover:text-white"
-            )}
-          >
-            <link.icon className="w-5 h-5" />
-            <span className="font-medium">{link.label}</span>
-          </NavLink>
-        ))}
+        {links.map((link) => {
+          const isDisabled = !isVerified && link.path !== '/dashboard' && link.path !== '/rider/dashboard';
+          
+          return (
+            <NavLink
+              key={link.path}
+              to={isDisabled ? '#' : link.path}
+              onClick={(e) => {
+                if (isDisabled) {
+                  e.preventDefault();
+                  navigate(userType === 'customer' ? '/dashboard' : '/rider/dashboard');
+                }
+              }}
+              className={({ isActive }) => cn(
+                "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group",
+                isActive 
+                  ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                  : "text-slate-400 hover:bg-white/5 hover:text-white",
+                isDisabled && "opacity-40 cursor-not-allowed hover:bg-transparent hover:text-slate-400"
+              )}
+            >
+              <link.icon className="w-5 h-5" />
+              <span className="font-medium">{link.label}</span>
+            </NavLink>
+          );
+        })}
       </nav>
 
       <div className="p-4 border-t border-white/10 space-y-4">
