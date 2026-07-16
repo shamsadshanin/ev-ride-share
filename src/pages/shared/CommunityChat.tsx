@@ -9,7 +9,7 @@ import { useAuthStore } from '@/src/store/useAuthStore';
 import { cn } from '@/src/lib/utils';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 
-export default function RiderGroupChat() {
+export default function CommunityChat() {
   const { user, profile } = useAuthStore();
   const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
@@ -20,15 +20,15 @@ export default function RiderGroupChat() {
     const collectionPath = 'group_messages';
     const q = query(
       collection(db, collectionPath),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      orderBy('createdAt', 'asc'),
+      limit(100)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const msgs = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      })).reverse();
+      }));
       setMessages(msgs);
       setLoading(false);
     }, (error) => {
@@ -54,7 +54,8 @@ export default function RiderGroupChat() {
       await addDoc(collection(db, collectionPath), {
         text,
         senderId: user.uid,
-        senderName: profile?.fullName || 'Rider',
+        senderName: profile?.fullName || user.displayName || 'User',
+        senderType: profile?.userType || 'Customer',
         createdAt: serverTimestamp(),
       });
     } catch (error) {
@@ -73,17 +74,17 @@ export default function RiderGroupChat() {
                 <Users size={24} />
               </div>
               <div>
-                <h2 className="font-bold text-slate-800">Rider Community</h2>
-                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Active Chat</p>
+                <h2 className="font-bold text-slate-800">EV Community</h2>
+                <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Global Chat</p>
               </div>
             </div>
             <p className="text-sm text-slate-500 leading-relaxed mb-4">
-              Share updates about traffic, charging stations, and IUB route status with fellow riders.
+              Connect with riders and customers. Share traffic updates, fare tips, or just say hi!
             </p>
             <div className="space-y-3">
                <div className="flex items-center gap-3 p-2 rounded-xl bg-slate-50">
                   <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                  <span className="text-xs font-bold text-slate-600">42 Riders Online</span>
+                  <span className="text-xs font-bold text-slate-600">Many Users Online</span>
                </div>
             </div>
           </GlassCard>
@@ -98,8 +99,8 @@ export default function RiderGroupChat() {
                     <Users size={20} />
                  </div>
                  <div>
-                    <h3 className="font-bold text-slate-800">Rider Group Chat</h3>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">IUB - Mirpur Route</p>
+                    <h3 className="font-bold text-slate-800">EV Community Chat</h3>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Public Lounge</p>
                  </div>
               </div>
            </div>
@@ -118,7 +119,17 @@ export default function RiderGroupChat() {
                        <User size={16} className="text-slate-400" />
                     </div>
                     <div className={cn("max-w-[70%]", isMe ? "text-right" : "")}>
-                       {!isMe && <p className="text-[10px] font-bold text-slate-400 mb-1 ml-1">{m.senderName}</p>}
+                       {!isMe && (
+                         <div className="flex items-center gap-1.5 mb-1 ml-1">
+                           <p className="text-[10px] font-bold text-slate-400">{m.senderName}</p>
+                           <span className={cn(
+                             "text-[8px] font-black px-1.5 py-0.5 rounded-sm uppercase tracking-tighter",
+                             m.senderType === 'Rider' ? "bg-emerald-100 text-emerald-600" : "bg-blue-100 text-blue-600"
+                           )}>
+                             {m.senderType || 'User'}
+                           </span>
+                         </div>
+                       )}
                        <div className={cn(
                          "px-4 py-2.5 rounded-2xl text-sm shadow-sm",
                          isMe ? "bg-emerald-500 text-white rounded-tr-none" : "bg-white border border-slate-100 text-slate-700 rounded-tl-none"

@@ -1,5 +1,6 @@
 import React from "react";
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
@@ -9,6 +10,7 @@ import { db } from '@/src/lib/firebase';
 import { useAuthStore } from '@/src/store/useAuthStore';
 
 export default function RideHistory() {
+  const navigate = useNavigate();
   const { user, profile } = useAuthStore();
   const [activeTab, setActiveTab] = useState('All');
   const [history, setHistory] = useState<any[]>([]);
@@ -101,7 +103,18 @@ export default function RideHistory() {
                       </td>
                     </tr>
                  ) : filteredHistory.length > 0 ? filteredHistory.map((ride) => (
-                   <tr key={ride.id} className="group hover:bg-slate-50/30 transition-colors">
+                   <tr 
+                     key={ride.id} 
+                     onClick={() => {
+                       if (ride.status === 'Active') {
+                         navigate(`/rider/trip/active?rideId=${ride.id}`);
+                       }
+                     }}
+                     className={cn(
+                       "group hover:bg-slate-50/30 transition-colors",
+                       ride.status === 'Active' && "cursor-pointer"
+                     )}
+                   >
                      <td className="px-8 py-6 text-xs font-bold text-slate-400 uppercase">#{ride.id.slice(-6)}</td>
                      <td className="px-8 py-6">
                         <p className="text-sm font-bold text-slate-700">

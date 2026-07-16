@@ -22,7 +22,7 @@ import RiderDashboard from './pages/rider/Dashboard';
 import LiveRequestsMap from './pages/rider/LiveRequestsMap';
 import ActiveTrip from './pages/rider/ActiveTrip';
 import RideHistory from './pages/rider/RideHistory';
-import RiderGroupChat from './pages/rider/GroupChat';
+import CommunityChat from './pages/shared/CommunityChat';
 import Notifications from './pages/shared/Notifications';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
@@ -103,13 +103,14 @@ export default function App() {
         <Route path="/driver-bids" element={<ProtectedRoute><DriverBids /></ProtectedRoute>} />
         <Route path="/active-rides" element={<ProtectedRoute><ActiveRideChat /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
+        <Route path="/community" element={<ProtectedRoute><CommunityChat /></ProtectedRoute>} />
         
         <Route path="/rider/kyc" element={<ProtectedRoute><VehicleKYC /></ProtectedRoute>} />
         <Route path="/rider/dashboard" element={<ProtectedRoute><RiderDashboard /></ProtectedRoute>} />
         <Route path="/rider/requests" element={<ProtectedRoute><LiveRequestsMap /></ProtectedRoute>} />
         <Route path="/rider/trip/active" element={<ProtectedRoute><ActiveTrip /></ProtectedRoute>} />
         <Route path="/rider/history" element={<ProtectedRoute><RideHistory /></ProtectedRoute>} />
-        <Route path="/rider/chat" element={<ProtectedRoute><RiderGroupChat /></ProtectedRoute>} />
+        <Route path="/rider/chat" element={<ProtectedRoute><CommunityChat /></ProtectedRoute>} />
         <Route path="/rider/rides" element={<Navigate to="/rider/history" replace />} />
         <Route path="/rider/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         

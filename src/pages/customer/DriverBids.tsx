@@ -1,9 +1,11 @@
 import React from "react";
 import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
+import { createNotification } from '@/src/lib/notifications';
+import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
@@ -75,8 +77,17 @@ export default function DriverBids() {
         status: 'Active',
         riderName: bid.riderName,
         finalFare: bid.fare,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
       });
+
+      // Notify rider
+      await createNotification(
+        bid.riderId,
+        'Bid Accepted!',
+        `Your bid of BDT ${bid.fare} has been accepted. Navigate to active trips to start.`,
+        'success'
+      );
+
       navigate(`/active-rides?rideId=${rideId}`);
     } catch (error) {
       handleFirestoreError(error, OperationType.UPDATE, path);

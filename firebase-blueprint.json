@@ -48,6 +48,16 @@
         "updatedAt": "timestamp"
       }
     },
+    "ride_messages": {
+      "description": "Messages for active rides",
+      "fields": {
+        "rideId": "string",
+        "senderId": "string",
+        "senderName": "string",
+        "text": "string",
+        "createdAt": "timestamp"
+      }
+    },
     "notifications": {
       "description": "User notifications for ride updates",
       "fields": {

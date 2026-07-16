@@ -1,36 +1,35 @@
 import React from "react";
 import { useEffect, useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { doc, onSnapshot, updateDoc, serverTimestamp, collection, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, serverTimestamp, collection, query, where, orderBy, addDoc } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
 import { useAuthStore } from '@/src/store/useAuthStore';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
+import { createNotification } from '@/src/lib/notifications';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Phone, Send, User, MessageSquare, MapPin, Loader2, CheckCircle, Users, AlertCircle } from 'lucide-react';
 import { cn } from '@/src/lib/utils';
 
-const messages = [
-  { id: 1, sender: 'other', text: 'Hi, I am at gate 3.', time: '11:05' },
-  { id: 2, sender: 'me', text: 'Coming! 1 minute.', time: '11:06' },
-  { id: 3, sender: 'other', text: 'Okay, I see the car.', time: '11:07' },
-];
-
 export default function ActiveTrip() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const rideId = searchParams.get('rideId');
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const [rides, setRides] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [messages, setMessages] = useState<any[]>([]);
   const [input, setInput] = useState('');
   const [selectedRideId, setSelectedRideId] = useState<string | null>(rideId);
+  const scrollRef = React.useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
 
+    const collectionPath = 'rides';
     const q = query(
-      collection(db, 'rides'),
+      collection(db, collectionPath),
       where('riderId', '==', user.uid),
       where('status', '==', 'Active')
     );
@@ -42,10 +41,57 @@ export default function ActiveTrip() {
         setSelectedRideId(activeRides[0].id);
       }
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();
   }, [user]);
+
+  useEffect(() => {
+    if (!selectedRideId) {
+      setMessages([]);
+      return;
+    }
+
+    const collectionPath = 'ride_messages';
+    const q = query(
+      collection(db, collectionPath),
+      where('rideId', '==', selectedRideId),
+      orderBy('createdAt', 'asc')
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setMessages(msgs);
+      setTimeout(() => scrollRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
+    });
+
+    return () => unsubscribe();
+  }, [selectedRideId]);
+
+  const handleSendMessage = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!input.trim() || !user || !selectedRideId) return;
+
+    const text = input;
+    setInput('');
+    const collectionPath = 'ride_messages';
+
+    try {
+      await addDoc(collection(db, collectionPath), {
+        rideId: selectedRideId,
+        senderId: user.uid,
+        senderName: profile?.fullName || 'Rider',
+        text,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.CREATE, collectionPath);
+    }
+  };
 
   const handleCompleteRide = async (id: string) => {
     try {
@@ -53,6 +99,18 @@ export default function ActiveTrip() {
         status: 'Completed',
         completedAt: serverTimestamp(),
       });
+      
+      // Notify customer
+      const ride = rides.find(r => r.id === id);
+      if (ride?.customerId) {
+        await createNotification(
+          ride.customerId,
+          'Ride Completed',
+          'Your trip has been completed successfully. Hope you had a great ride!',
+          'success'
+        );
+      }
+
       if (rides.length <= 1) {
         navigate('/rider/history');
       }
@@ -223,24 +281,49 @@ export default function ActiveTrip() {
              </div>
 
              <div className="flex-1 overflow-y-auto p-8 space-y-6 bg-slate-50/20">
-                <div className="flex flex-col items-center justify-center py-10 opacity-40">
-                   <MessageSquare size={32} className="text-slate-300 mb-2" />
-                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start a conversation</p>
-                </div>
+                {messages.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-10 opacity-40">
+                    <MessageSquare size={32} className="text-slate-300 mb-2" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Start a conversation</p>
+                  </div>
+                ) : messages.map((msg) => (
+                  <div 
+                    key={msg.id} 
+                    className={cn(
+                      "flex flex-col max-w-[80%]",
+                      msg.senderId === user?.uid ? "ml-auto items-end" : "items-start"
+                    )}
+                  >
+                    <div className={cn(
+                      "px-6 py-4 rounded-3xl text-sm font-medium leading-relaxed shadow-sm",
+                      msg.senderId === user?.uid 
+                        ? "bg-emerald-500 text-white rounded-tr-none shadow-emerald-100" 
+                        : "bg-white text-slate-700 rounded-tl-none border border-slate-100"
+                    )}>
+                      {msg.text}
+                    </div>
+                    <span className="text-[10px] font-bold text-slate-300 mt-2 px-2">
+                      {msg.createdAt?.toDate ? new Date(msg.createdAt.toDate()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
+                    </span>
+                  </div>
+                ))}
+                <div ref={scrollRef} />
              </div>
 
-             <div className="p-6 border-t border-slate-50 bg-white/50 shrink-0">
+             <form onSubmit={handleSendMessage} className="p-6 border-t border-slate-50 bg-white/50 shrink-0">
                <div className="flex gap-3">
                   <input 
                     type="text"
                     placeholder={`Message ${selectedRide?.customerName || 'Passenger'}...`}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
                     className="flex-1 bg-slate-50 border border-slate-100 rounded-2xl px-6 py-3.5 outline-none focus:border-emerald-500 transition-all shadow-sm font-medium text-sm text-slate-600"
                   />
-                  <EmeraldButton className="w-12 h-12 p-0 flex items-center justify-center shrink-0">
+                  <EmeraldButton type="submit" className="w-12 h-12 p-0 flex items-center justify-center shrink-0">
                     <Send size={18} className="rotate-[-15deg]" />
                   </EmeraldButton>
                </div>
-             </div>
+             </form>
            </GlassCard>
         </div>
       </div>

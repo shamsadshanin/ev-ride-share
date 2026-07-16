@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
 import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
+import { createNotification } from '@/src/lib/notifications';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
@@ -83,6 +84,17 @@ export default function LiveRequestsMap() {
         trips: profile?.completedTrips || '0 trips',
         createdAt: serverTimestamp(),
       });
+      
+      // Notify customer
+      const ride = requests.find(r => r.id === rideId);
+      if (ride?.customerId) {
+        await createNotification(
+          ride.customerId,
+          'New Bid Received',
+          `${profile?.fullName || 'A rider'} has placed a bid of BDT ${fare} for your ride.`,
+          'info'
+        );
+      }
       
       setSuccessId(rideId);
       setBidAmounts(prev => ({ ...prev, [rideId]: '' }));

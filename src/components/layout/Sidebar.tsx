@@ -9,6 +9,7 @@ const customerLinks = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
   { icon: Send, label: 'Post a Ride', path: '/post-ride' },
   { icon: Car, label: 'Active Rides', path: '/active-rides' },
+  { icon: MessageSquare, label: 'Community', path: '/community' },
 ];
 
 const riderLinks = [
