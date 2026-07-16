@@ -9,6 +9,7 @@ import { motion } from 'motion/react';
 import { cn } from '@/src/lib/utils';
 import { collection, query, where, orderBy, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 
 export default function CustomerDashboard() {
   const navigate = useNavigate();
@@ -31,8 +32,9 @@ export default function CustomerDashboard() {
   React.useEffect(() => {
     if (!user) return;
 
+    const collectionPath = 'rides';
     const q = query(
-      collection(db, 'rides'),
+      collection(db, collectionPath),
       where('customerId', '==', user.uid),
       orderBy('createdAt', 'desc'),
       limit(10)
@@ -48,6 +50,8 @@ export default function CustomerDashboard() {
       const completed = rides.filter(r => r.status === 'Completed').length;
       setStats({ completed, pending: active ? 1 : 0 });
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();

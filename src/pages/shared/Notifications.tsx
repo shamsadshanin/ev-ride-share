@@ -4,6 +4,7 @@ import { GlassCard } from '@/src/components/ui/GlassCard';
 import { Bell, Info, CheckCircle2, AlertCircle, Clock } from 'lucide-react';
 import { collection, query, where, orderBy, onSnapshot, limit } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { cn } from '@/src/lib/utils';
 
@@ -24,8 +25,9 @@ export default function Notifications() {
   useEffect(() => {
     if (!user) return;
 
+    const collectionPath = 'notifications';
     const q = query(
-      collection(db, 'notifications'),
+      collection(db, collectionPath),
       where('userId', '==', user.uid),
       orderBy('createdAt', 'desc'),
       limit(20)
@@ -38,6 +40,8 @@ export default function Notifications() {
       })) as Notification[];
       setNotifications(notifs);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();

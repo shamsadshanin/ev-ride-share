@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { collection, query, where, onSnapshot, doc, getDoc, updateDoc } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
@@ -36,15 +37,21 @@ export default function DriverBids() {
 
     // Fetch ride details
     const fetchRide = async () => {
-      const rideDoc = await getDoc(doc(db, 'rides', rideId));
-      if (rideDoc.exists()) {
-        setRideData(rideDoc.data());
+      const path = `rides/${rideId}`;
+      try {
+        const rideDoc = await getDoc(doc(db, 'rides', rideId));
+        if (rideDoc.exists()) {
+          setRideData(rideDoc.data());
+        }
+      } catch (error) {
+        handleFirestoreError(error, OperationType.GET, path);
       }
     };
     fetchRide();
 
     // Listen for bids
-    const q = query(collection(db, 'bids'), where('rideId', '==', rideId));
+    const collectionPath = 'bids';
+    const q = query(collection(db, collectionPath), where('rideId', '==', rideId));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const bidsData = snapshot.docs.map(doc => ({
         id: doc.id,
@@ -52,6 +59,8 @@ export default function DriverBids() {
       })) as Bid[];
       setBids(bidsData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();
@@ -59,6 +68,7 @@ export default function DriverBids() {
 
   const handleAcceptBid = async (bid: Bid) => {
     if (!rideId) return;
+    const path = `rides/${rideId}`;
     try {
       await updateDoc(doc(db, 'rides', rideId), {
         riderId: bid.riderId,
@@ -69,7 +79,7 @@ export default function DriverBids() {
       });
       navigate(`/active-rides?rideId=${rideId}`);
     } catch (error) {
-      console.error('Error accepting bid:', error);
+      handleFirestoreError(error, OperationType.UPDATE, path);
     }
   };
 

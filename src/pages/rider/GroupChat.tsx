@@ -4,6 +4,7 @@ import { GlassCard } from '@/src/components/ui/GlassCard';
 import { Send, User, MessageSquare, Users, Loader2 } from 'lucide-react';
 import { collection, query, orderBy, onSnapshot, addDoc, serverTimestamp, limit } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { cn } from '@/src/lib/utils';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
@@ -16,8 +17,9 @@ export default function RiderGroupChat() {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    const collectionPath = 'group_messages';
     const q = query(
-      collection(db, 'group_messages'),
+      collection(db, collectionPath),
       orderBy('createdAt', 'desc'),
       limit(50)
     );
@@ -29,6 +31,8 @@ export default function RiderGroupChat() {
       })).reverse();
       setMessages(msgs);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();
@@ -44,16 +48,17 @@ export default function RiderGroupChat() {
 
     const text = input;
     setInput('');
+    const collectionPath = 'group_messages';
 
     try {
-      await addDoc(collection(db, 'group_messages'), {
+      await addDoc(collection(db, collectionPath), {
         text,
         senderId: user.uid,
         senderName: profile?.fullName || 'Rider',
         createdAt: serverTimestamp(),
       });
     } catch (error) {
-      console.error('Error sending message:', error);
+      handleFirestoreError(error, OperationType.CREATE, collectionPath);
     }
   };
 

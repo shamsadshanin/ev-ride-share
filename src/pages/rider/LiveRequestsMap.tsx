@@ -2,6 +2,7 @@ import React from "react";
 import { useEffect, useState, useMemo } from 'react';
 import { collection, query, where, onSnapshot, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { DashboardLayout } from '@/src/components/layout/DashboardLayout';
 import { GlassCard } from '@/src/components/ui/GlassCard';
@@ -37,7 +38,8 @@ export default function LiveRequestsMap() {
   const [bidAmounts, setBidAmounts] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    const q = query(collection(db, 'rides'), where('status', '==', 'Pending'));
+    const collectionPath = 'rides';
+    const q = query(collection(db, collectionPath), where('status', '==', 'Pending'));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const requestsData = snapshot.docs.map(doc => {
         const data = doc.data();
@@ -52,6 +54,8 @@ export default function LiveRequestsMap() {
       }) as RideRequest[];
       setRequests(requestsData);
       setLoading(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();
@@ -64,8 +68,9 @@ export default function LiveRequestsMap() {
     if (isNaN(fare) || fare <= 0) return;
 
     setBiddingId(rideId);
+    const collectionPath = 'bids';
     try {
-      await addDoc(collection(db, 'bids'), {
+      await addDoc(collection(db, collectionPath), {
         rideId,
         riderId: user.uid,
         riderName: profile?.fullName || user.displayName || 'Rider',
@@ -83,7 +88,7 @@ export default function LiveRequestsMap() {
       setBidAmounts(prev => ({ ...prev, [rideId]: '' }));
       setTimeout(() => setSuccessId(null), 3000);
     } catch (error) {
-      console.error('Error placing bid:', error);
+      handleFirestoreError(error, OperationType.CREATE, collectionPath);
     } finally {
       setBiddingId(null);
     }

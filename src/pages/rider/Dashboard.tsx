@@ -9,6 +9,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '@/src/store/useAuthStore';
 import { collection, query, where, limit, onSnapshot } from 'firebase/firestore';
 import { db } from '@/src/lib/firebase';
+import { handleFirestoreError, OperationType } from '@/src/lib/firestore-errors';
 
 export default function RiderDashboard() {
   const navigate = useNavigate();
@@ -30,8 +31,9 @@ export default function RiderDashboard() {
   React.useEffect(() => {
     if (!user || !isVerified) return;
 
+    const collectionPath = 'rides';
     const q = query(
-      collection(db, 'rides'),
+      collection(db, collectionPath),
       where('riderId', '==', user.uid),
       where('status', '==', 'Active'),
       limit(1)
@@ -43,6 +45,8 @@ export default function RiderDashboard() {
       } else {
         setActiveRide(null);
       }
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();
@@ -78,8 +82,9 @@ export default function RiderDashboard() {
       return;
     }
 
+    const collectionPath = 'rides';
     const q = query(
-      collection(db, 'rides'),
+      collection(db, collectionPath),
       where('status', '==', 'Pending'),
       limit(5)
     );
@@ -91,6 +96,8 @@ export default function RiderDashboard() {
       }));
       setRealNearbyRequests(requests);
       setLoadingRequests(false);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.LIST, collectionPath);
     });
 
     return () => unsubscribe();

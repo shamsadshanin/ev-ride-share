@@ -47,6 +47,26 @@
         "messages": "array",
         "updatedAt": "timestamp"
       }
+    },
+    "notifications": {
+      "description": "User notifications for ride updates",
+      "fields": {
+        "userId": "string",
+        "title": "string",
+        "message": "string",
+        "type": "string",
+        "createdAt": "timestamp",
+        "read": "boolean"
+      }
+    },
+    "group_messages": {
+      "description": "Public chat messages for the rider community",
+      "fields": {
+        "text": "string",
+        "senderId": "string",
+        "senderName": "string",
+        "createdAt": "timestamp"
+      }
     }
   }
 }
