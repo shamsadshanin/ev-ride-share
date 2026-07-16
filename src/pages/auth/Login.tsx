@@ -1,8 +1,9 @@
 import React from "react";
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { signInWithEmailAndPassword } from 'firebase/auth';
-import { auth } from '@/src/lib/firebase';
+import { signInWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db, googleProvider } from '@/src/lib/firebase';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Input } from '@/src/components/ui/Input';
@@ -15,6 +16,7 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSignIn = async (e: React.FormEvent) => {
@@ -30,6 +32,41 @@ export default function Login() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if user profile exists
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (!userDoc.exists()) {
+        // Create basic profile if it doesn't exist
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          fullName: user.displayName || 'Google User',
+          email: user.email,
+          phone: '',
+          userType: 'Customer', // Default to Customer for Google Sign In
+          kycStatus: 'Pending',
+          userStatus: 'Active',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        navigate('/kyc');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Google sign in failed.');
+      console.error(err);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -140,7 +177,7 @@ export default function Login() {
                 </Link>
               </div>
 
-              <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading}>
+              <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading || googleLoading}>
                 {loading ? 'Signing in...' : 'Sign In'}
                 {!loading && (
                   <motion.span
@@ -162,9 +199,14 @@ export default function Login() {
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <button type="button" className="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-semibold text-slate-600">
+                <button 
+                  type="button" 
+                  onClick={handleGoogleSignIn}
+                  disabled={loading || googleLoading}
+                  className="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-semibold text-slate-600 disabled:opacity-50"
+                >
                    <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
-                   Google
+                   {googleLoading ? '...' : 'Google'}
                 </button>
                 <button type="button" className="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-semibold text-slate-600">
                    <img src="https://www.svgrepo.com/show/303108/apple-black-logo.svg" className="w-5 h-5" alt="Apple" />

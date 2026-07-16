@@ -1,9 +1,9 @@
 import React from "react";
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/src/lib/firebase';
+import { createUserWithEmailAndPassword, signInWithPopup } from 'firebase/auth';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, db, googleProvider } from '@/src/lib/firebase';
 import { GlassCard } from '@/src/components/ui/GlassCard';
 import { EmeraldButton } from '@/src/components/ui/EmeraldButton';
 import { Input } from '@/src/components/ui/Input';
@@ -19,6 +19,7 @@ export default function Signup() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -54,6 +55,41 @@ export default function Signup() {
       console.error(err);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const result = await signInWithPopup(auth, googleProvider);
+      const user = result.user;
+
+      // Check if user profile exists
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      
+      if (!userDoc.exists()) {
+        // Create basic profile if it doesn't exist
+        await setDoc(doc(db, 'users', user.uid), {
+          uid: user.uid,
+          fullName: user.displayName || 'Google User',
+          email: user.email,
+          phone: '',
+          userType: 'Customer', // Default to Customer for Google Sign In
+          kycStatus: 'Pending',
+          userStatus: 'Active',
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+        navigate('/kyc');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err: any) {
+      setError(err.message || 'Google sign in failed.');
+      console.error(err);
+    } finally {
+      setGoogleLoading(false);
     }
   };
 
@@ -175,7 +211,7 @@ export default function Signup() {
               </label>
             </div>
 
-            <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading}>
+            <EmeraldButton type="submit" className="w-full py-4 text-lg" disabled={loading || googleLoading}>
               {loading ? 'Creating Account...' : 'Create Account'}
               {!loading && (
                 <motion.span
@@ -186,6 +222,31 @@ export default function Signup() {
                 </motion.span>
               )}
             </EmeraldButton>
+
+            <div className="relative py-4">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white/80 backdrop-blur px-4 text-slate-400 font-bold tracking-widest">or sign up with</span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <button 
+                type="button" 
+                onClick={handleGoogleSignIn}
+                disabled={loading || googleLoading}
+                className="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-semibold text-slate-600 disabled:opacity-50"
+              >
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" className="w-5 h-5" alt="Google" />
+                {googleLoading ? '...' : 'Google'}
+              </button>
+              <button type="button" className="flex items-center justify-center gap-3 px-4 py-3 border border-slate-200 rounded-xl hover:bg-slate-50 transition-all font-semibold text-slate-600">
+                <img src="https://www.svgrepo.com/show/303108/apple-black-logo.svg" className="w-5 h-5" alt="Apple" />
+                Apple
+              </button>
+            </div>
           </form>
 
           <p className="mt-8 text-center text-sm text-slate-500">
