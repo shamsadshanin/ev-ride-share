@@ -11,13 +11,13 @@ service cloud.firestore {
 
     match /users/{userId} {
       allow read: if isSignedIn();
-      // Owner can update their own profile. Any signed-in user may update
-      // only the rider rating aggregates (written by the customer after a ride).
-      function ratingFieldsOnly() {
+      // Owner can update their own profile. Any signed-in user (admin) may
+      // update only rating aggregates, KYC status or role fields.
+      function safeFields() {
         return request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['rating', 'completedTrips', 'updatedAt']);
+          .hasOnly(['rating', 'completedTrips', 'updatedAt', 'kycStatus', 'role', 'todayEarnings', 'todayTrips', 'totalEarnings']);
       }
-      allow write: if isOwner(userId) || (isSignedIn() && ratingFieldsOnly());
+      allow write: if isOwner(userId) || (isSignedIn() && safeFields());
     }
 
     match /rides/{rideId} {
@@ -38,11 +38,23 @@ service cloud.firestore {
     }
 
     match /kyc_submissions/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      function statusOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt', 'review', 'reviewedBy']);
+      }
+      allow update: if isOwner(userId) || (isSignedIn() && statusOnly());
     }
 
     match /rider_kyc_submissions/{userId} {
-      allow read, write: if isOwner(userId);
+      allow read: if isSignedIn();
+      allow create: if isOwner(userId);
+      function statusOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['status', 'updatedAt', 'review', 'reviewedBy']);
+      }
+      allow update: if isOwner(userId) || (isSignedIn() && statusOnly());
     }
 
     match /ride_messages/{msgId} {

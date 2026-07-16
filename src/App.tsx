@@ -24,6 +24,10 @@ import ActiveTrip from './pages/rider/ActiveTrip';
 import RideHistory from './pages/rider/RideHistory';
 import CommunityChat from './pages/shared/CommunityChat';
 import Notifications from './pages/shared/Notifications';
+import Landing from './pages/Landing';
+import AdminLayout from './pages/admin/AdminLayout';
+import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminKYC from './pages/admin/AdminKYC';
 import { DashboardLayout } from './components/layout/DashboardLayout';
 
 // Temporary placeholder for protected screens
@@ -40,13 +44,13 @@ const Placeholder = ({ title, userType, userName }: { title: string, userType?: 
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, loading } = useAuthStore();
-  
+
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center bg-slate-50">
       <div className="w-8 h-8 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
     </div>
   );
-  
+
   if (!user) return <Navigate to="/login" replace />;
   return <>{children}</>;
 };
@@ -60,7 +64,7 @@ const RootRedirect = () => {
     </div>
   );
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/" replace />;
 
   if (profile?.userType === 'Rider') {
     return <Navigate to="/rider/dashboard" replace />;
@@ -94,9 +98,12 @@ export default function App() {
   return (
     <Router>
       <Routes>
+        <Route path="/" element={<Landing />} />
+        <Route path="/app" element={<RootRedirect />} />
+
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
-        
+
         <Route path="/kyc" element={<ProtectedRoute><KYC /></ProtectedRoute>} />
         <Route path="/dashboard" element={<ProtectedRoute><CustomerDashboard /></ProtectedRoute>} />
         <Route path="/post-ride" element={<ProtectedRoute><PostRide /></ProtectedRoute>} />
@@ -104,7 +111,7 @@ export default function App() {
         <Route path="/active-rides" element={<ProtectedRoute><ActiveRideChat /></ProtectedRoute>} />
         <Route path="/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
         <Route path="/community" element={<ProtectedRoute><CommunityChat /></ProtectedRoute>} />
-        
+
         <Route path="/rider/kyc" element={<ProtectedRoute><VehicleKYC /></ProtectedRoute>} />
         <Route path="/rider/dashboard" element={<ProtectedRoute><RiderDashboard /></ProtectedRoute>} />
         <Route path="/rider/requests" element={<ProtectedRoute><LiveRequestsMap /></ProtectedRoute>} />
@@ -113,8 +120,13 @@ export default function App() {
         <Route path="/rider/chat" element={<ProtectedRoute><CommunityChat /></ProtectedRoute>} />
         <Route path="/rider/rides" element={<Navigate to="/rider/history" replace />} />
         <Route path="/rider/notifications" element={<ProtectedRoute><Notifications /></ProtectedRoute>} />
-        
-        <Route path="/" element={<RootRedirect />} />
+
+        {/* Admin Panel */}
+        <Route path="/shanin-panel/admin" element={<AdminLayout />}>
+          <Route index element={<AdminDashboard />} />
+          <Route path="kyc" element={<AdminKYC />} />
+        </Route>
+        <Route path="/shanin-panel/admin/*" element={<AdminLayout />} />
       </Routes>
     </Router>
   );
