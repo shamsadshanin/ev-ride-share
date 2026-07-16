@@ -1,0 +1,77 @@
+import { NavLink } from 'react-router-dom';
+import { LayoutDashboard, Send, Car, LogOut, Bell, User } from 'lucide-react';
+import { cn } from '@/src/lib/utils';
+
+const customerLinks = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
+  { icon: Send, label: 'Post a Ride', path: '/post-ride' },
+  { icon: Car, label: 'Active Rides', path: '/active-rides' },
+];
+
+const riderLinks = [
+  { icon: LayoutDashboard, label: 'Dashboard', path: '/rider/dashboard' },
+  { icon: Car, label: 'My Rides', path: '/rider/rides' },
+  { icon: Bell, label: 'Notifications', path: '/rider/notifications' },
+];
+
+interface SidebarProps {
+  userType?: 'customer' | 'rider';
+  userName: string;
+  userStatus?: string;
+}
+
+export function Sidebar({ userType = 'customer', userName, userStatus = 'Active' }: SidebarProps) {
+  const links = userType === 'customer' ? customerLinks : riderLinks;
+
+  return (
+    <aside className="w-64 h-screen bg-[#0f172a] text-white flex flex-col fixed left-0 top-0 z-50">
+      <div className="p-8">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center">
+            <Send className="text-white w-6 h-6 rotate-[-15deg]" />
+          </div>
+          <div>
+            <h1 className="font-bold text-xl leading-tight">EV Ride</h1>
+            <p className="text-[10px] text-emerald-400 font-bold uppercase tracking-widest">Share Platform</p>
+          </div>
+        </div>
+      </div>
+
+      <nav className="flex-1 px-4 space-y-2 mt-4">
+        {links.map((link) => (
+          <NavLink
+            key={link.path}
+            to={link.path}
+            className={({ isActive }) => cn(
+              "flex items-center gap-4 px-4 py-3.5 rounded-xl transition-all duration-200 group",
+              isActive 
+                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" 
+                : "text-slate-400 hover:bg-white/5 hover:text-white"
+            )}
+          >
+            <link.icon className="w-5 h-5" />
+            <span className="font-medium">{link.label}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className="p-4 border-t border-white/10 space-y-4">
+        <button className="flex items-center gap-4 px-4 py-3.5 w-full text-slate-400 hover:text-white transition-colors rounded-xl hover:bg-white/5">
+          <LogOut className="w-5 h-5" />
+          <span className="font-medium">Log Out</span>
+        </button>
+
+        <div className="flex items-center gap-3 p-3 rounded-2xl bg-white/5">
+          <div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center relative overflow-hidden">
+             <User className="w-6 h-6 text-slate-400" />
+             <div className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border-2 border-[#0f172a] rounded-full" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold truncate">{userName}</p>
+            <p className="text-[10px] text-emerald-400 font-medium">{userStatus}</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+  );
+}

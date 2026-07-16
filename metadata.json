@@ -1,0 +1,6 @@
+{
+  "name": "EV Ride",
+  "description": "An emerald-themed electric vehicle ride-sharing platform with customer and rider flows, featuring glassmorphism UI.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
